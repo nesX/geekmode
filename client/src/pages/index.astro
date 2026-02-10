@@ -1,0 +1,93 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ProductCard from '../components/shop/ProductCard.astro';
+import { products } from '../data/products';
+
+const featuredProducts = products.slice(0, 8);
+---
+
+<Layout title="Inicio">
+  <!-- Hero Section -->
+  <section class="bg-primary rounded-3xl overflow-hidden mb-12 text-white">
+    <div class="grid md:grid-cols-2 items-center">
+      <div class="p-8 md:p-16">
+        <h1 class="text-4xl md:text-6xl font-black mb-6 leading-tight">
+          Estilo <span class="text-secondary italic">Geek</span> para Devs
+        </h1>
+        <p class="text-lg text-slate-300 mb-8 max-w-md">
+          Prendas diseñadas por desarrolladores para desarrolladores. Calidad premium y diseños que hablan tu lenguaje.
+        </p>
+        <div class="flex flex-wrap gap-4">
+          <a href="#productos" class="bg-secondary hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition-colors">
+            Ver Colección
+          </a>
+          <div class="flex -space-x-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div class="w-10 h-10 rounded-full border-2 border-primary bg-slate-700 flex items-center justify-center text-[10px] font-bold">
+                {String.fromCharCode(64 + i)}
+              </div>
+            ))}
+            <div class="pl-4 flex items-center text-sm text-slate-400">
+              +500 Devs ya las usan
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="hidden md:block bg-gradient-to-br from-slate-800 to-primary h-full min-h-[400px] relative overflow-hidden">
+        <!-- Decoración abstracta -->
+        <div class="absolute inset-0 opacity-20 font-mono text-[10px] p-4 overflow-hidden pointer-events-none">
+          {Array(20).fill(0).map(() => (
+            <div class="whitespace-nowrap">
+              {`const product = { name: "Geek Shirt", price: "55k", quality: "max" };`.repeat(5)}
+            </div>
+          ))}
+        </div>
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div class="w-64 h-64 bg-secondary/20 rounded-full blur-3xl animate-pulse"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Product Grid -->
+  <section id="productos">
+    <div class="flex items-end justify-between mb-8">
+      <div>
+        <h2 class="text-3xl font-bold text-primary">Nuevos Lanzamientos</h2>
+        <p class="text-slate-500 mt-2">Explora lo último en estilo developer.</p>
+      </div>
+      <a href="/productos" class="text-secondary font-semibold hover:underline">Ver todos</a>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {featuredProducts.map((product) => (
+        <ProductCard product={product} />
+      ))}
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="mt-20 py-12 border-y border-slate-200 grid md:grid-cols-3 gap-8">
+    <div class="flex flex-col items-center text-center">
+      <div class="w-12 h-12 bg-blue-100 text-secondary rounded-full flex items-center justify-center mb-4">
+        🚚
+      </div>
+      <h3 class="font-bold text-lg mb-2">Envíos a toda Colombia</h3>
+      <p class="text-sm text-slate-500">Recibe tus productos en la puerta de tu casa u oficina.</p>
+    </div>
+    <div class="flex flex-col items-center text-center">
+      <div class="w-12 h-12 bg-blue-100 text-secondary rounded-full flex items-center justify-center mb-4">
+        💳
+      </div>
+      <h3 class="font-bold text-lg mb-2">Pago Seguro</h3>
+      <p class="text-sm text-slate-500">Múltiples medios de pago a través de WhatsApp o transferencia.</p>
+    </div>
+    <div class="flex flex-col items-center text-center">
+      <div class="w-12 h-12 bg-blue-100 text-secondary rounded-full flex items-center justify-center mb-4">
+        🧶
+      </div>
+      <h3 class="font-bold text-lg mb-2">Calidad Premium</h3>
+      <p class="text-sm text-slate-500">Algodón 100% y estampados de alta durabilidad.</p>
+    </div>
+  </section>
+</Layout>
