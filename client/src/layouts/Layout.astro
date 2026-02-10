@@ -1,0 +1,43 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import Header from '../components/ui/Header.astro';
+
+/**
+ * @typedef {Object} Props
+ * @property {string} title - Título de la página.
+ * @property {string} [description] - Descripción para SEO.
+ */
+
+const { title, description = 'GeekShop - Estilo Geek para Desarrolladores' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title} | GeekShop</title>
+    <meta name="description" content={description} />
+    <ClientRouter />
+  </head>
+  <body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col font-sans">
+    <Header />
+    <main class="flex-grow container mx-auto px-4 py-8">
+      <slot />
+    </main>
+    <footer class="bg-primary text-white py-8 mt-auto">
+      <div class="container mx-auto px-4 text-center">
+        <p>&copy; {new Date().getFullYear()} GeekShop. Hecho con ❤️ para la comunidad dev.</p>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style is:global>
+  :root {
+    --primary: #0f172a;
+    --secondary: #3b82f6;
+  }
+</style>
