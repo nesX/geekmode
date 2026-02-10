@@ -9,29 +9,29 @@ import { formatPrice } from '../../utils/format';
 const { product } = Astro.props;
 ---
 
-<article class="group bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-lg transition-all duration-300">
+<article class="group bg-surface rounded-xl border border-white/10 overflow-hidden hover:border-primary/50 transition-all duration-300">
   <a href={`/producto/${product.slug}`} class="block">
-    <div class="aspect-square bg-slate-100 overflow-hidden relative">
+    <div class="aspect-square bg-background overflow-hidden relative">
       <img
         src={product.images[0]}
         alt={product.name}
-        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
         loading="lazy"
         width="400"
         height="400"
       />
       {product.price > 100000 && (
-        <span class="absolute top-2 right-2 bg-secondary text-white text-[10px] font-bold px-2 py-1 rounded uppercase">
+        <span class="absolute top-2 right-2 bg-primary text-white text-[10px] font-bold px-2 py-1 rounded uppercase shadow-[0_0_10px_rgba(139,92,246,0.5)]">
           Premium
         </span>
       )}
     </div>
     <div class="p-4">
-      <p class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">{product.category}</p>
-      <h3 class="font-bold text-slate-900 group-hover:text-secondary transition-colors line-clamp-1">
+      <p class="text-[10px] text-text-muted uppercase tracking-wider mb-1 font-semibold">{product.category}</p>
+      <h3 class="font-bold text-text-main group-hover:text-primary transition-colors line-clamp-1">
         {product.name}
       </h3>
-      <p class="text-lg font-bold text-primary mt-2">
+      <p class="text-lg font-bold text-secondary mt-2">
         {formatPrice(product.price)}
       </p>
     </div>

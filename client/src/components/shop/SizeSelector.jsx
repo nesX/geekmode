@@ -10,16 +10,16 @@ export default function SizeSelector({ sizes }) {
 
   return (
     <div className="mb-8">
-      <label className="block text-sm font-bold text-primary mb-3">Selecciona tu talla:</label>
+      <label className="block text-sm font-bold text-text-main mb-3 uppercase tracking-wider text-xs">Selecciona tu talla:</label>
       <div className="flex flex-wrap gap-3">
         {sizes.map((size) => (
           <button
             key={size}
             onClick={() => setSelectedSize(size)}
-            className={`min-w-[3rem] h-12 flex items-center justify-center border-2 rounded-lg font-bold transition-all ${
+            className={`min-w-[3.5rem] h-12 flex items-center justify-center border-2 rounded-xl font-bold transition-all ${
               $selectedSize === size
-                ? 'border-secondary bg-blue-50 text-secondary'
-                : 'border-slate-200 hover:border-primary hover:bg-slate-50 text-slate-600'
+                ? 'border-primary bg-primary/10 text-primary shadow-[0_0_15px_rgba(139,92,246,0.2)]'
+                : 'border-white/10 hover:border-white/30 bg-surface text-text-muted hover:text-text-main'
             }`}
           >
             {size}
