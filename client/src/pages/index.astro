@@ -8,34 +8,35 @@ const featuredProducts = products.slice(0, 8);
 
 <Layout title="Inicio">
   <!-- Hero Section -->
-  <section class="bg-primary rounded-3xl overflow-hidden mb-12 text-white">
+  <section class="bg-surface rounded-3xl overflow-hidden mb-12 text-text-main border border-white/5 shadow-2xl relative">
+    <div class="absolute top-0 right-0 w-1/2 h-full bg-primary/5 blur-[120px] -z-10"></div>
     <div class="grid md:grid-cols-2 items-center">
-      <div class="p-8 md:p-16">
+      <div class="p-8 md:p-16 relative z-10">
         <h1 class="text-4xl md:text-6xl font-black mb-6 leading-tight">
-          Estilo <span class="text-secondary italic">Geek</span> para Devs
+          Estilo <span class="text-primary italic">Geek</span> para Devs
         </h1>
-        <p class="text-lg text-slate-300 mb-8 max-w-md">
+        <p class="text-lg text-text-muted mb-8 max-w-md">
           Prendas diseñadas por desarrolladores para desarrolladores. Calidad premium y diseños que hablan tu lenguaje.
         </p>
         <div class="flex flex-wrap gap-4">
-          <a href="#productos" class="bg-secondary hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-lg transition-colors">
+          <a href="#productos" class="bg-primary hover:opacity-90 text-white font-bold py-3 px-8 rounded-lg transition-all shadow-[0_0_20px_rgba(139,92,246,0.4)]">
             Ver Colección
           </a>
           <div class="flex -space-x-2">
             {[1, 2, 3, 4].map((i) => (
-              <div class="w-10 h-10 rounded-full border-2 border-primary bg-slate-700 flex items-center justify-center text-[10px] font-bold">
+              <div class="w-10 h-10 rounded-full border-2 border-surface bg-background flex items-center justify-center text-[10px] font-bold text-primary">
                 {String.fromCharCode(64 + i)}
               </div>
             ))}
-            <div class="pl-4 flex items-center text-sm text-slate-400">
+            <div class="pl-4 flex items-center text-sm text-text-muted">
               +500 Devs ya las usan
             </div>
           </div>
         </div>
       </div>
-      <div class="hidden md:block bg-gradient-to-br from-slate-800 to-primary h-full min-h-[400px] relative overflow-hidden">
+      <div class="hidden md:block bg-background/50 h-full min-h-[400px] relative overflow-hidden border-l border-white/5">
         <!-- Decoración abstracta -->
-        <div class="absolute inset-0 opacity-20 font-mono text-[10px] p-4 overflow-hidden pointer-events-none">
+        <div class="absolute inset-0 opacity-10 font-mono text-[10px] p-4 overflow-hidden pointer-events-none text-primary">
           {Array(20).fill(0).map(() => (
             <div class="whitespace-nowrap">
               {`const product = { name: "Geek Shirt", price: "55k", quality: "max" };`.repeat(5)}
@@ -43,7 +44,14 @@ const featuredProducts = products.slice(0, 8);
           ))}
         </div>
         <div class="absolute inset-0 flex items-center justify-center">
-          <div class="w-64 h-64 bg-secondary/20 rounded-full blur-3xl animate-pulse"></div>
+          <div class="w-64 h-64 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
+        </div>
+        <div class="absolute bottom-8 right-8 bg-surface/80 backdrop-blur-md p-4 rounded-xl border border-white/10 shadow-xl">
+          <pre class="text-xs text-secondary font-mono"><code>{`{
+  "status": "ready",
+  "style": "cyberpunk",
+  "coffee": true
+}`}</code></pre>
         </div>
       </div>
     </div>
@@ -53,10 +61,10 @@ const featuredProducts = products.slice(0, 8);
   <section id="productos">
     <div class="flex items-end justify-between mb-8">
       <div>
-        <h2 class="text-3xl font-bold text-primary">Nuevos Lanzamientos</h2>
-        <p class="text-slate-500 mt-2">Explora lo último en estilo developer.</p>
+        <h2 class="text-3xl font-bold text-text-main">Nuevos <span class="text-primary">Lanzamientos</span></h2>
+        <p class="text-text-muted mt-2 font-medium">Explora lo último en estilo developer.</p>
       </div>
-      <a href="/productos" class="text-secondary font-semibold hover:underline">Ver todos</a>
+      <a href="/productos" class="text-secondary font-semibold hover:text-primary transition-colors">Ver todos</a>
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -67,27 +75,27 @@ const featuredProducts = products.slice(0, 8);
   </section>
 
   <!-- Features -->
-  <section class="mt-20 py-12 border-y border-slate-200 grid md:grid-cols-3 gap-8">
-    <div class="flex flex-col items-center text-center">
-      <div class="w-12 h-12 bg-blue-100 text-secondary rounded-full flex items-center justify-center mb-4">
+  <section class="mt-20 py-16 border-y border-white/5 grid md:grid-cols-3 gap-12 bg-surface/30 rounded-3xl px-8">
+    <div class="flex flex-col items-center text-center group">
+      <div class="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-6 text-2xl group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(139,92,246,0.1)]">
         🚚
       </div>
-      <h3 class="font-bold text-lg mb-2">Envíos a toda Colombia</h3>
-      <p class="text-sm text-slate-500">Recibe tus productos en la puerta de tu casa u oficina.</p>
+      <h3 class="font-bold text-xl mb-3 text-text-main">Envíos a toda Colombia</h3>
+      <p class="text-sm text-text-muted leading-relaxed">Recibe tus productos en la puerta de tu casa u oficina con seguimiento en tiempo real.</p>
     </div>
-    <div class="flex flex-col items-center text-center">
-      <div class="w-12 h-12 bg-blue-100 text-secondary rounded-full flex items-center justify-center mb-4">
+    <div class="flex flex-col items-center text-center group">
+      <div class="w-16 h-16 bg-secondary/10 text-secondary rounded-2xl flex items-center justify-center mb-6 text-2xl group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(59,130,246,0.1)]">
         💳
       </div>
-      <h3 class="font-bold text-lg mb-2">Pago Seguro</h3>
-      <p class="text-sm text-slate-500">Múltiples medios de pago a través de WhatsApp o transferencia.</p>
+      <h3 class="font-bold text-xl mb-3 text-text-main">Pago Seguro</h3>
+      <p class="text-sm text-text-muted leading-relaxed">Múltiples medios de pago a través de WhatsApp o transferencia con total seguridad.</p>
     </div>
-    <div class="flex flex-col items-center text-center">
-      <div class="w-12 h-12 bg-blue-100 text-secondary rounded-full flex items-center justify-center mb-4">
+    <div class="flex flex-col items-center text-center group">
+      <div class="w-16 h-16 bg-accent/10 text-accent rounded-2xl flex items-center justify-center mb-6 text-2xl group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(20,184,166,0.1)]">
         🧶
       </div>
-      <h3 class="font-bold text-lg mb-2">Calidad Premium</h3>
-      <p class="text-sm text-slate-500">Algodón 100% y estampados de alta durabilidad.</p>
+      <h3 class="font-bold text-xl mb-3 text-text-main">Calidad Premium</h3>
+      <p class="text-sm text-text-muted leading-relaxed">Algodón 100% y estampados de alta durabilidad que resisten todos tus deploys.</p>
     </div>
   </section>
 </Layout>

@@ -18,7 +18,7 @@ const { product } = Astro.props;
 
 <Layout title={product.name} description={product.description}>
   <div class="mb-8">
-    <a href="/" class="inline-flex items-center gap-2 text-slate-500 hover:text-primary transition-colors font-medium">
+    <a href="/" class="inline-flex items-center gap-2 text-text-muted hover:text-primary transition-colors font-medium">
       <ArrowLeft className="w-4 h-4" />
       Volver a la tienda
     </a>
@@ -27,7 +27,8 @@ const { product } = Astro.props;
   <div class="grid lg:grid-cols-2 gap-12">
     <!-- Gallery -->
     <div class="space-y-4">
-      <div class="aspect-square bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <div class="aspect-square bg-surface rounded-2xl border border-white/10 overflow-hidden relative">
+        <div class="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent pointer-events-none"></div>
         <img
           src={product.images[0]}
           alt={product.name}
@@ -36,7 +37,7 @@ const { product } = Astro.props;
       </div>
       <div class="grid grid-cols-4 gap-4">
         {product.images.map((img, idx) => (
-          <div class={`aspect-square rounded-lg border-2 overflow-hidden cursor-pointer ${idx === 0 ? 'border-secondary' : 'border-transparent'}`}>
+          <div class={`aspect-square rounded-lg border-2 overflow-hidden cursor-pointer transition-all ${idx === 0 ? 'border-primary shadow-[0_0_10px_rgba(139,92,246,0.3)]' : 'border-white/5 opacity-50 hover:opacity-100'}`}>
             <img src={img} alt={`${product.name} thumbnail ${idx}`} class="w-full h-full object-cover" />
           </div>
         ))}
@@ -46,51 +47,52 @@ const { product } = Astro.props;
     <!-- Details -->
     <div class="flex flex-col">
       <div class="flex items-center justify-between mb-2">
-        <span class="bg-blue-100 text-secondary text-xs font-bold px-3 py-1 rounded-full uppercase">
+        <span class="bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-primary/20">
           {product.category}
         </span>
         <div class="flex items-center gap-4">
-          <button class="text-slate-400 hover:text-red-500 transition-colors">
+          <button class="text-text-muted hover:text-red-500 transition-colors">
             <Heart className="w-6 h-6" />
           </button>
-          <button class="text-slate-400 hover:text-primary transition-colors">
+          <button class="text-text-muted hover:text-primary transition-colors">
             <Share2 className="w-6 h-6" />
           </button>
         </div>
       </div>
 
-      <h1 class="text-3xl md:text-4xl font-black text-primary mb-4 leading-tight">
+      <h1 class="text-3xl md:text-4xl font-black text-text-main mb-4 leading-tight">
         {product.name}
       </h1>
 
-      <p class="text-2xl font-bold text-secondary mb-6">
+      <p class="text-3xl font-bold text-secondary mb-6 flex items-center gap-2">
         {formatPrice(product.price)}
+        <span class="text-sm font-normal text-text-muted line-through opacity-50">$ 75.000</span>
       </p>
 
-      <div class="prose prose-slate mb-8">
-        <p class="text-slate-600 leading-relaxed">
+      <div class="prose prose-invert mb-8">
+        <p class="text-text-muted leading-relaxed">
           {product.description}
         </p>
       </div>
 
       <SizeSelector sizes={product.sizes} client:load />
 
-      <div class="mt-auto pt-8 border-t border-slate-200">
+      <div class="mt-auto pt-8 border-t border-white/10">
         <AddToCartButton product={product} client:load />
 
-        <p class="text-[10px] text-center text-slate-400 mt-4 uppercase tracking-widest font-bold">
-          🚚 Envío gratis en pedidos superiores a $ 150.000
+        <p class="text-[10px] text-center text-text-muted mt-4 uppercase tracking-widest font-bold">
+          <span class="text-accent">🚚</span> Envío gratis en pedidos superiores a $ 150.000
         </p>
       </div>
 
       <div class="mt-8 grid grid-cols-2 gap-4">
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-          <p class="text-xs font-bold text-primary mb-1 uppercase">Material</p>
-          <p class="text-sm text-slate-500">100% Algodón Peinado</p>
+        <div class="bg-surface p-4 rounded-xl border border-white/5 group hover:border-primary/30 transition-colors">
+          <p class="text-xs font-bold text-primary mb-1 uppercase tracking-tighter">Material</p>
+          <p class="text-sm text-text-muted font-medium">100% Algodón Peinado</p>
         </div>
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-          <p class="text-xs font-bold text-primary mb-1 uppercase">Impresión</p>
-          <p class="text-sm text-slate-500">DTF de alta resolución</p>
+        <div class="bg-surface p-4 rounded-xl border border-white/5 group hover:border-secondary/30 transition-colors">
+          <p class="text-xs font-bold text-secondary mb-1 uppercase tracking-tighter">Impresión</p>
+          <p class="text-sm text-text-muted font-medium">DTF de alta resolución</p>
         </div>
       </div>
     </div>
