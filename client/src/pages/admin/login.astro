@@ -1,0 +1,8 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import AdminLoginForm from '../../components/admin/AdminLoginForm.jsx';
+---
+
+<Layout title="Login Admin">
+  <AdminLoginForm client:only="react" />
+</Layout>
