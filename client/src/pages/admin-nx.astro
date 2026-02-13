@@ -1,0 +1,23 @@
+---
+/**
+ * Admin Panel - Hidden Route
+ * This page is not linked from anywhere in the site.
+ * Access directly via /admin-nx
+ */
+import '../styles/global.css';
+import AdminApp from '../components/admin/AdminApp.jsx';
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Admin Panel | GeekShop</title>
+  </head>
+  <body class="bg-background text-text-main min-h-screen font-sans antialiased">
+    <AdminApp client:only="react" />
+  </body>
+</html>
