@@ -138,3 +138,17 @@ cd client && npm run dev
 1. Crear base de datos PostgreSQL: `mitienda`.
 2. Ejecutar script: `psql -d mitienda -f server/database/init.sql`.
 3. Configurar `.env` en `/server` con `DB_USER`, `DB_PASS`, `JWT_SECRET`.
+
+
+
+
+
+### [2026-02-12] 
+# Implementado!
+
+1. SRuta /admin-nx para el panel de administracion
+2. la autenticacion sera unicamente con google
+3. se implementa JWT stateless para las sessiones
+
+
+

@@ -1,0 +1,167 @@
+ Contexto
+
+ El proyecto GeekShop tiene un frontend Astro con datos de productos hardcodeados en client/src/data/products.js (12 productos). El backend Express ya existe con auth JWT/Google pero no tiene endpoints de productos. Necesitamos construir las 4 capas del
+  backend (repositorio → servicio → controlador → ruta) y conectar el cliente.
+
+ Prerequisito: Configurar el pool de PostgreSQL
+
+ Archivo: server/src/config/db.js (actualmente vacío)
+
+ Crear el pool de pg usando la config de env.js:
+
+ import pg from 'pg';
+ import { env } from './env.js';
+
+ const pool = new pg.Pool({
+   host: env.db.host,
+   port: env.db.port,
+   database: env.db.name,
+   user: env.db.user,
+   password: env.db.pass,
+ });
+
+ export default pool;
+
+ ---
+ Paso 1 — server/src/repositories/product.repository.js
+
+ 3 funciones con queries parametrizadas:
+
+ - findAllActive() — SELECT productos activos con SUM de stock via LEFT JOIN variants. ORDER BY created_at DESC.
+ - findBySlug(slug) — SELECT producto + json_agg de variantes. WHERE slug = $1 AND is_active = true.
+ - findById(id) — SELECT simple por id.
+
+ Todas importan pool de config/db.js y usan pool.query().
+
+ ---
+ Paso 2 — server/src/services/product.service.js
+
+ - getAllProducts() — Llama a findAllActive(), retorna el array de rows.
+ - getProductBySlug(slug) — Llama a findBySlug(slug), si no hay resultado lanza Error('PRODUCT_NOT_FOUND'). Agrupa variantes por color para el frontend.
+ - getProductById(id) — Llama a findById(id), lanza error si no existe.
+
+ ---
+ Paso 3 — server/src/controllers/product.controller.js
+
+ - getProducts(req, res) — Llama al servicio, responde 200 con { products }.
+ - getProductBySlug(req, res) — Extrae req.params.slug, llama al servicio, responde 200 o captura error PRODUCT_NOT_FOUND y responde 404.
+
+ ---
+ Paso 4 — Registrar en server/src/routes/public.routes.js
+
+ Agregar al router existente (que ya tiene /health):
+
+ router.get('/products', productController.getProducts);
+ router.get('/products/:slug', productController.getProductBySlug);
+
+ ---
+ Paso 5 — Cliente: client/src/lib/api.js
+
+ Crear las funciones de fetch al backend:
+
+ const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
+
+ export async function fetchProducts() { ... }       // GET /api/products
+ export async function fetchProductBySlug(slug) { ... } // GET /api/products/:slug
+
+ ---
+ Paso 6 — Cliente: Conectar las páginas
+
+ client/src/pages/index.astro
+
+ - Reemplazar import { products } from '../data/products' por import { fetchProducts } from '../lib/api'
+ - Llamar await fetchProducts() en el frontmatter
+ - Adaptar shape: mapear base_price → price, image_url → images (array), para que ProductCard.astro siga funcionando
+
+ client/src/pages/producto/[slug].astro
+
+ - Reemplazar getStaticPaths() para usar fetchProducts() y generar los paths desde la API
+ - En cada path, hacer fetchProductBySlug(slug) para obtener el detalle con variantes
+ - Adaptar shape: mapear campos DB a la forma que esperan SizeSelector y AddToCartButton (sizes como array de strings, images como array, price como número)
+
+ Mapeo de campos DB → Cliente
+ ┌──────────────────────────────────┬─────────────────────────────────────────────────────────────┐
+ │                DB                │                           Cliente                           │
+ ├──────────────────────────────────┼─────────────────────────────────────────────────────────────┤
+ │ base_price                       │ price                                                       │
+ ├──────────────────────────────────┼─────────────────────────────────────────────────────────────┤
+ │ image_url                        │ images (envolver en array [image_url])                      │
+ ├──────────────────────────────────┼─────────────────────────────────────────────────────────────┤
+ │ variantes → extraer sizes únicos │ sizes (array de strings)                                    │
+ ├──────────────────────────────────┼─────────────────────────────────────────────────────────────┤
+ │ (no existe en DB)                │ category (se puede omitir o usar string genérico por ahora) │
+ └──────────────────────────────────┴─────────────────────────────────────────────────────────────┘
+ ---
+ Archivos a crear/modificar
+ ┌───────────────────────────────────────────────┬──────────────────────────────────────────────────┐
+ │                    Archivo                    │                      Acción                      │
+ ├───────────────────────────────────────────────┼──────────────────────────────────────────────────┤
+ │ server/src/config/db.js                       │ Crear pool de PostgreSQL                         │
+ ├───────────────────────────────────────────────┼──────────────────────────────────────────────────┤
+ │ server/src/repositories/product.repository.js │ Crear (3 funciones SQL)                          │
+ ├───────────────────────────────────────────────┼──────────────────────────────────────────────────┤
+ │ server/src/services/product.service.js        │ Crear (lógica de negocio)                        │
+ ├───────────────────────────────────────────────┼──────────────────────────────────────────────────┤
+ │ server/src/controllers/product.controller.js  │ Crear (req/res handlers)                         │
+ ├───────────────────────────────────────────────┼──────────────────────────────────────────────────┤
+ │ server/src/routes/public.routes.js            │ Modificar (agregar 2 rutas)                      │
+ ├───────────────────────────────────────────────┼──────────────────────────────────────────────────┤
+ │ client/src/lib/api.js                         │ Crear (2 funciones fetch)                        │
+ ├───────────────────────────────────────────────┼──────────────────────────────────────────────────┤
+ │ client/src/pages/index.astro                  │ Modificar (fetch real en vez de import estático) │
+ ├───────────────────────────────────────────────┼──────────────────────────────────────────────────┤
+ │ client/src/pages/producto/[slug].astro        │ Modificar (fetch real + adaptar shape)           │
+ └───────────────────────────────────────────────┴──────────────────────────────────────────────────┘
+
+
+Verificacion
+
+ 1. Levantar PostgreSQL con init.sql ejecutado
+ 2. Levantar el server: npm run dev en /server
+ 3. Probar endpoints con curl:
+   - curl http://localhost:3000/api/products
+   - curl http://localhost:3000/api/products/camiseta-developer-mode
+ 4. Levantar el client: npm run dev en /client
+ 5. Verificar que la home y las paginas de detalle cargan productos desde la API
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+
+[Done!]
+
+ Claude has written up a plan and is ready to execute. Would you like to proceed?
+
+ ❯ 1. Yes, clear context and auto-accept edits (shift+tab)
+   2. Yes, auto-accept edits
+   3. Yes, manually approve edits
+   4. Type here to tell Claude what to change
+
+
+  Backend (4 layers):                                                                                                                                                                                                                                         
+  ┌───────────────────────────────────────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │                     File                      │                                             What it does                                             │                                                                                                    
+  ├───────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────┤                                                                                                    
+  │ server/src/config/db.js                       │ PostgreSQL pool using pg + env config                                                                │
+  ├───────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────┤                                                                                                    
+  │ server/src/repositories/product.repository.js │ 3 SQL functions: findAllActive() (with stock SUM), findBySlug() (with json_agg variants), findById() │                                                                                                    
+  ├───────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────┤                                                                                                    
+  │ server/src/services/product.service.js        │ Business logic: getAllProducts(), getProductBySlug() (groups variants by color), getProductById()    │                                                                                                    
+  ├───────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────┤                                                                                                    
+  │ server/src/controllers/product.controller.js  │ HTTP handlers: getProducts (200), getProductBySlug (200/404)                                         │                                                                                                    
+  ├───────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/routes/public.routes.js            │ Added GET /api/products and GET /api/products/:slug                                                  │
+  └───────────────────────────────────────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────┘
+  Client (API + page connections):
+  ┌────────────────────────────────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │                  File                  │                                                    What it does                                                     │
+  ├────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ client/src/lib/api.js                  │ fetchProducts() and fetchProductBySlug(slug) hitting the backend                                                    │
+  ├────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ client/src/pages/index.astro           │ Replaced static import with fetchProducts(), maps base_price → price, image_url → images                            │
+  ├────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ client/src/pages/producto/[slug].astro │ getStaticPaths() uses fetchProducts(), detail fetched via fetchProductBySlug(), extracts unique sizes from variants │
+  └────────────────────────────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  To verify:
+  1. Run init.sql against PostgreSQL
+  2. Set DB_USER and DB_PASS in server/.env
+  3. npm run dev in /server → test with curl http://localhost:3000/api/products
+  4. npm run dev in /client → verify home and product detail pages load from the API

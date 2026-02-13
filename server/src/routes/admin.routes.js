@@ -5,6 +5,10 @@ import {
   generateJWT,
   requireAdmin,
 } from '../middlewares/auth.middleware.js';
+import * as adminProductController from '../controllers/admin.product.controller.js';
+import logger from '../utils/logger.js';
+import { uploadImage as multerUpload, uploadImages } from '../middlewares/upload.middleware.js';
+import * as imageController from '../controllers/admin.image.controller.js';
 
 const router = Router();
 
@@ -50,7 +54,7 @@ router.post('/auth/google', async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Error in Google auth:', error);
+    logger.error('admin.routes', `Error in Google auth: ${error.message}`);
     return res.status(500).json({
       message: 'Error interno del servidor',
     });
@@ -79,5 +83,20 @@ router.get('/auth/me', requireAdmin, (req, res) => {
 router.post('/auth/verify', requireAdmin, (req, res) => {
   return res.json({ valid: true });
 });
+
+// ── Product CRUD (all protected) ──
+router.get('/products', requireAdmin, adminProductController.getProducts);
+router.post('/products', requireAdmin, uploadImages, adminProductController.createProduct);
+router.put('/products/:id', requireAdmin, adminProductController.updateProduct);
+router.delete('/products/:id', requireAdmin, adminProductController.deactivateProduct);
+router.post('/products/:id/variants', requireAdmin, adminProductController.addVariant);
+router.patch('/variants/:id/stock', requireAdmin, adminProductController.updateStock);
+
+// ── Product Images ──
+router.get('/products/:productId/images', requireAdmin, imageController.getImages);
+router.post('/products/:productId/images', requireAdmin, multerUpload.single('image'), imageController.uploadImage);
+router.patch('/products/:productId/images/:imageId/primary', requireAdmin, imageController.setPrimary);
+router.patch('/products/images/reorder', requireAdmin, imageController.reorderImages);
+router.delete('/products/images/:imageId', requireAdmin, imageController.deleteImage);
 
 export default router;

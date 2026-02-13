@@ -1,0 +1,83 @@
+.
+├── client
+│   ├── astro.config.mjs
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── public
+│   │   ├── favicon.ico
+│   │   ├── favicon.svg
+│   │   └── images
+│   │       ├── camiseta-template.png
+│   │       └── products
+│   │           ├── cap-code.jpg
+│   │           ├── dev-black-front.jpg
+│   │           ├── hoodie-git.jpg
+│   │           ├── js-coffee.jpg
+│   │           ├── linux-penguin.jpg
+│   │           ├── python-zen.jpg
+│   │           ├── react-islands.jpg
+│   │           └── stickers.jpg
+│   ├── README.md
+│   ├── src
+│   │   ├── components
+│   │   │   ├── admin
+│   │   │   │   ├── AdminApp.jsx
+│   │   │   │   ├── AdminDashboard.jsx
+│   │   │   │   └── GoogleLoginButton.jsx
+│   │   │   ├── shop
+│   │   │   │   ├── AddToCartButton.jsx
+│   │   │   │   ├── CartFlyout.jsx
+│   │   │   │   ├── ProductCard.astro
+│   │   │   │   └── SizeSelector.jsx
+│   │   │   └── ui
+│   │   │       ├── CartCounter.jsx
+│   │   │       └── Header.astro
+│   │   ├── data
+│   │   │   └── products.js
+│   │   ├── layouts
+│   │   │   └── Layout.astro
+│   │   ├── lib
+│   │   │   ├── api.js
+│   │   │   ├── authStore.js
+│   │   │   ├── cartStore.js
+│   │   │   ├── cartUiStore.js
+│   │   │   ├── productStore.js
+│   │   │   └── store.js
+│   │   ├── pages
+│   │   │   ├── admin-nx.astro
+│   │   │   ├── index.astro
+│   │   │   └── producto
+│   │   │       └── [slug].astro
+│   │   ├── styles
+│   │   │   └── global.css
+│   │   └── utils
+│   │       └── format.js
+│   ├── tailwind.config.mjs
+│   └── tsconfig.json
+├── ideas-dominio.txt
+├── README.md
+├── server
+│   ├── database
+│   │   └── init.sql
+│   ├── package.json
+│   ├── package-lock.json
+│   └── src
+│       ├── app.js
+│       ├── config
+│       │   ├── cloudinary.js
+│       │   ├── db.js
+│       │   └── env.js
+│       ├── controllers
+│       ├── middlewares
+│       │   ├── auth.middleware.js
+│       │   └── upload.middleware.js
+│       ├── repositories
+│       ├── routes
+│       │   ├── admin.routes.js
+│       │   ├── public.routes.js
+│       │   └── webhooks.routes.js
+│       ├── services
+│       └── utils
+└── tree.txt
+
+27 directories, 54 files

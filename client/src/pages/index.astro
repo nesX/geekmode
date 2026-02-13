@@ -1,9 +1,18 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import ProductCard from '../components/shop/ProductCard.astro';
-import { products } from '../data/products';
+import { fetchProducts } from '../lib/api';
 
-const featuredProducts = products.slice(0, 8);
+const rawProducts = await fetchProducts();
+const featuredProducts = rawProducts.slice(0, 8).map((p) => ({
+  id: p.id,
+  slug: p.slug,
+  name: p.name,
+  price: Number(p.base_price),
+  description: p.description,
+  images: [p.image_url],
+  category: 'Geek',
+}));
 ---
 
 <Layout title="Inicio">

@@ -24,6 +24,14 @@ export const env = {
     .map(email => email.trim().toLowerCase())
     .filter(Boolean),
 
+  // Logging
+  LOG_PATH: process.env.LOG_PATH || 'logs',
+
+  // Media / Images
+  MEDIA_PATH: process.env.MEDIA_PATH || 'uploads/products',
+  MEDIA_URL_PREFIX: process.env.MEDIA_URL_PREFIX || '/media/products',
+  MAX_IMAGES_PER_PRODUCT: parseInt(process.env.MAX_IMAGES_PER_PRODUCT || '8', 10),
+
   // Database (optional)
   db: {
     host: process.env.DB_HOST || 'localhost',

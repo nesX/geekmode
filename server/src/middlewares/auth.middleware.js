@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
+import logger from '../utils/logger.js';
 
 /**
  * Verifies Google ID token using Google's tokeninfo endpoint.
@@ -13,7 +14,7 @@ export async function verifyGoogleToken(credential) {
     );
 
     if (!response.ok) {
-      console.error('Google token validation failed:', response.status);
+      logger.error('auth.middleware', `Google token validation failed: ${response.status}`);
       return null;
     }
 
@@ -21,13 +22,13 @@ export async function verifyGoogleToken(credential) {
 
     // Verify the token is for our application
     if (env.googleClientId && payload.aud !== env.googleClientId) {
-      console.error('Token audience mismatch');
+      logger.error('auth.middleware', 'Token audience mismatch');
       return null;
     }
 
     // Verify email is verified
     if (payload.email_verified !== 'true' && payload.email_verified !== true) {
-      console.error('Email not verified');
+      logger.error('auth.middleware', 'Email not verified');
       return null;
     }
 
@@ -38,7 +39,7 @@ export async function verifyGoogleToken(credential) {
       sub: payload.sub,
     };
   } catch (error) {
-    console.error('Error verifying Google token:', error);
+    logger.error('auth.middleware', `Error verifying Google token: ${error.message}`);
     return null;
   }
 }

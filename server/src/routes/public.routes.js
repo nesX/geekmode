@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import * as productController from '../controllers/product.controller.js';
 
 const router = Router();
 
@@ -12,5 +13,17 @@ router.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+/**
+ * GET /api/products
+ * List all active products
+ */
+router.get('/products', productController.getProducts);
+
+/**
+ * GET /api/products/:slug
+ * Get product detail by slug
+ */
+router.get('/products/:slug', productController.getProductBySlug);
 
 export default router;

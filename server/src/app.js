@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { env } from './config/env.js';
+import logger from './utils/logger.js';
 import { authMiddleware } from './middlewares/auth.middleware.js';
 import adminRoutes from './routes/admin.routes.js';
 import publicRoutes from './routes/public.routes.js';
@@ -21,6 +22,11 @@ app.use(cors({
 // Logging
 if (env.isDevelopment) {
   app.use(morgan('dev'));
+}
+
+// Serve uploaded images in development (Nginx handles this in production)
+if (env.isDevelopment) {
+  app.use('/media/products', express.static('uploads/products'));
 }
 
 // Body parsing
@@ -48,7 +54,7 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
+  logger.error('app', `Unhandled error: ${err.message}`);
   res.status(500).json({
     message: env.isProduction ? 'Error interno del servidor' : err.message,
   });

@@ -1,0 +1,106 @@
+ Plan: Gestión de Imágenes Multi-producto                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                              
+ Contexto                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                              
+ Actualmente los productos solo tienen un campo image_url en la tabla products. Se necesita soportar múltiples imágenes por producto con capacidad de subir, eliminar, reordenar y marcar una como principal. Las instrucciones detalladas están en           
+ tasks/tasks.md.
+
+ Archivos a modificar
+
+ - server/src/config/env.js — agregar variables MEDIA_PATH, MEDIA_URL_PREFIX, MAX_IMAGES_PER_PRODUCT
+ - server/src/app.js — servir estáticos en desarrollo
+ - server/src/routes/admin.routes.js — agregar rutas de imágenes
+ - server/src/middlewares/upload.middleware.js — configurar multer (archivo vacío actualmente)
+
+ Archivos nuevos a crear
+
+ - server/src/repositories/image.repository.js — SQL puro para product_images
+ - server/src/services/image.service.js — lógica de negocio (disco + repo)
+ - server/src/controllers/admin.image.controller.js — handlers HTTP con validación Zod
+ - client/src/components/admin/ImageManager.jsx — componente React
+
+ Archivos a integrar
+
+ - client/src/components/admin/VariantsModal.jsx — montar <ImageManager /> con productId y token
+
+ Pasos de implementación
+
+ 1. Migración SQL
+
+ Crear tabla product_images con campos: id, product_id (FK CASCADE), url, alt_text, display_order, is_primary, created_at. Índice en product_id.
+
+ 2. Variables de entorno
+
+ Agregar a server/.env: MEDIA_PATH, MEDIA_URL_PREFIX, MAX_IMAGES_PER_PRODUCT.
+ Exportar en server/src/config/env.js siguiendo el patrón existente.
+
+ 3. Estáticos en desarrollo
+
+ En server/src/app.js, agregar express.static para /media/products solo en dev.
+
+ 4. Upload middleware
+
+ Implementar multer en server/src/middlewares/upload.middleware.js con storage en disco, filtro de tipos (jpeg/png/webp), límite 5MB. Necesita instalar multer.
+
+ 5. Repository → Service → Controller
+
+ Crear los 3 archivos siguiendo el patrón existente del proyecto (layered architecture):
+ - Repository: SQL puro con pool.query
+ - Service: lógica de negocio + manejo de disco
+ - Controller: validación + respuestas HTTP
+
+ 6. Rutas admin
+
+ Agregar 5 endpoints en admin.routes.js protegidos con requireAdmin.
+
+ 7. Componente ImageManager.jsx
+
+ Componente React con: grid de imágenes, upload, delete, reorder, marcar principal. Recibe productId y token como props.
+
+ 8. Integración en VariantsModal
+
+ Importar y montar ImageManager debajo del formulario de variantes.
+
+ Dependencia a instalar
+
+ - multer en server/
+
+ Verificación
+
+ 1. npm install en server/
+ 2. Ejecutar migración SQL en PostgreSQL
+ 3. Reiniciar servidor
+ 4. En el admin: abrir variantes de un producto → debe aparecer el ImageManager
+ 5. Probar: subir imagen, subir segunda, marcar principal, reordenar, eliminar
+
+
+
+   Summary                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                              
+  Files created (6)                                                                                                                                                                                                                                           
+                                                                                                                                                                                                                                                              
+  - server/src/migrations/001_product_images.sql — SQL migration with product_images table + index                                                                                                                                                            
+  - server/src/repositories/image.repository.js — Pure SQL layer (findByProductId, findById, create, setPrimary, updateOrder, remove)                                                                                                                         
+  - server/src/services/image.service.js — Business logic + disk management (upload, delete with file cleanup, auto-set primary)                                                                                                                              
+  - server/src/controllers/admin.image.controller.js — HTTP handlers with Zod validation for reorder                                                                                                                                                          
+  - client/src/components/admin/ImageManager.jsx — React component with upload, delete, reorder (←/→), and set primary                                                                                                                                        
+
+  Files modified (5)
+
+  - server/.env — Added MEDIA_PATH, MEDIA_URL_PREFIX, MAX_IMAGES_PER_PRODUCT
+  - server/src/config/env.js — Exported the 3 new env variables
+  - server/src/app.js — Added express.static for /media/products in dev mode
+  - server/src/middlewares/upload.middleware.js — Implemented multer with disk storage, file type filter (jpeg/png/webp), 5MB limit
+  - server/src/routes/admin.routes.js — Added 5 image endpoints (GET, POST, PATCH primary, PATCH reorder, DELETE)
+  - client/src/components/admin/VariantsModal.jsx — Imported and mounted <ImageManager> below the variants form
+
+  Dependency installed
+
+  - multer in server/
+
+  Next steps to activate
+
+  1. Run the SQL migration: psql -U postgres -d geekmode -f server/src/migrations/001_product_images.sql
+  2. Restart the server (npm run dev in server/)
+  3. Open admin → click a product's variants → ImageManager should appear below the variant form
+

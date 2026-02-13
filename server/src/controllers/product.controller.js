@@ -1,0 +1,25 @@
+import * as productService from '../services/product.service.js';
+import logger from '../utils/logger.js';
+
+export async function getProducts(req, res) {
+  try {
+    const products = await productService.getAllProducts();
+    res.json({ products });
+  } catch (err) {
+    logger.error('product.controller', `Error fetching products: ${err.message}`);
+    res.status(500).json({ message: 'Error al obtener productos' });
+  }
+}
+
+export async function getProductBySlug(req, res) {
+  try {
+    const product = await productService.getProductBySlug(req.params.slug);
+    res.json({ product });
+  } catch (err) {
+    if (err.message === 'PRODUCT_NOT_FOUND') {
+      return res.status(404).json({ message: 'Producto no encontrado' });
+    }
+    logger.error('product.controller', `Error fetching product: ${err.message}`);
+    res.status(500).json({ message: 'Error al obtener producto' });
+  }
+}
