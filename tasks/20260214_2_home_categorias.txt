@@ -1,0 +1,83 @@
+ Plan: Home con Categorías e Imágenes                                       
+
+ Contexto
+
+ El home actual (index.astro) muestra solo una sección "Nuevos Lanzamientos" con 8 productos. Se necesita agregar secciones por categoría (hasta 8 productos cada una) y mejorar el manejo de imágenes con product_images como fuente principal y image_url
+ como fallback. Todo se genera en build time (SSG).
+
+ 1. Backend — Nuevo endpoint GET /api/home
+
+ 1.1 product.repository.js — agregar findNewest(limit) y findByCategoryId(categoryId, limit)
+
+ - findNewest(limit = 8): Los 8 productos más recientes activos con total_stock e imagen principal (LEFT JOIN product_images WHERE is_primary, COALESCE con image_url como fallback)
+ - findByCategoryId(categoryId, limit = 8): Igual pero filtrado por categoría via product_categories. Reusar la misma estructura de query.
+
+ 1.2 product.service.js — agregar getHomeData()
+
+ Usando Opción A del plan (una query por categoría):
+ 1. Llama findNewest(8) para los productos nuevos
+ 2. Llama categoryRepo.findAllWithProducts() para las categorías activas con productos
+ 3. Para cada categoría, llama findByCategoryId(cat.id, 8)
+ 4. Retorna { newest: [...], categories: [{ id, name, slug, products: [...] }, ...] }
+
+ 1.3 product.controller.js — agregar getHomeData(req, res)
+
+ Patrón existente: try/catch, llama al service, responde JSON.
+
+ 1.4 public.routes.js — agregar ruta
+
+ router.get('/home', productController.getHomeData);
+
+ 2. Frontend — client/src/lib/api.js
+
+ Agregar fetchHomeData() que llama a GET /api/home.
+
+ 3. Frontend — ProductCard.astro
+
+ Agregar prop priority (boolean, default false):
+ - priority={true} → loading="eager" + fetchpriority="high"
+ - priority={false} → loading="lazy"
+
+ Agregar fallback de imagen: si product.images[0] es null/vacío, usar /images/camiseta-template.png.
+
+ 4. Frontend — index.astro
+
+ Reemplazar el fetch actual (fetchProducts) por fetchHomeData():
+ - Sección "Nuevos Lanzamientos" con data.newest (primeras 4 con priority=true)
+ - Una sección por cada categoría en data.categories con link "Ver todos" a /camisetas/{slug}
+ - Todas las cards de categorías con priority=false
+
+ Mapear productos al formato que espera ProductCard: { id, slug, name, price, images: [image_url], category }.
+
+ 5. Frontend — [slug].astro
+
+ Actualizar el mapeo de productos para usar la imagen con fallback igual que index.astro. Primeras 4 cards con priority=true.
+
+ Archivos a modificar
+
+ ┌───────────────────────────────────────────────┬───────────────────────────────────────────────┐
+ │                    Archivo                    │                    Acción                     │
+ ├───────────────────────────────────────────────┼───────────────────────────────────────────────┤
+ │ server/src/repositories/product.repository.js │ Agregar findNewest(), findByCategoryId()      │
+ ├───────────────────────────────────────────────┼───────────────────────────────────────────────┤
+ │ server/src/services/product.service.js        │ Agregar getHomeData() (importar categoryRepo) │
+ ├───────────────────────────────────────────────┼───────────────────────────────────────────────┤
+ │ server/src/controllers/product.controller.js  │ Agregar getHomeData()                         │
+ ├───────────────────────────────────────────────┼───────────────────────────────────────────────┤
+ │ server/src/routes/public.routes.js            │ Agregar GET /api/home                         │
+ ├───────────────────────────────────────────────┼───────────────────────────────────────────────┤
+ │ client/src/lib/api.js                         │ Agregar fetchHomeData()                       │
+ ├───────────────────────────────────────────────┼───────────────────────────────────────────────┤
+ │ client/src/components/shop/ProductCard.astro  │ Agregar prop priority, fallback imagen        │
+ ├───────────────────────────────────────────────┼───────────────────────────────────────────────┤
+ │ client/src/pages/index.astro                  │ Usar fetchHomeData(), secciones por categoría │
+ ├───────────────────────────────────────────────┼───────────────────────────────────────────────┤
+ │ client/src/pages/camisetas/[slug].astro       │ Agregar priority en primeras 4 cards          │
+ └───────────────────────────────────────────────┴───────────────────────────────────────────────┘
+
+ Verificación
+
+ 1. Arrancar el server y verificar GET /api/home retorna newest + categories con productos
+ 2. Hacer build del client y verificar que index.html tiene todas las secciones
+ 3. Verificar que las primeras 4 imágenes usan loading="eager" y el resto loading="lazy"
+ 4. Verificar que las páginas de categoría /camisetas/[slug] siguen funcionando

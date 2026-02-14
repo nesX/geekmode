@@ -122,6 +122,23 @@ export function logout() {
 }
 
 /**
+ * Wrapper around fetch that adds auth headers and handles 401 responses.
+ * On 401, it logs out the user forcing a re-login.
+ * @param {string} url
+ * @param {RequestInit} [options]
+ * @returns {Promise<Response>}
+ */
+export async function adminFetch(url, options = {}) {
+  const headers = { ...getAuthHeaders(), ...options.headers };
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    logout();
+    throw new Error('Sesion expirada. Inicia sesion nuevamente.');
+  }
+  return res;
+}
+
+/**
  * Sets the loading state.
  * @param {boolean} loading
  */

@@ -1,6 +1,14 @@
 ---
 import CartCounter from './CartCounter.jsx';
 import CartFlyout from '../shop/CartFlyout.jsx';
+import { fetchCategories } from '../../lib/api';
+
+let categories = [];
+try {
+  categories = await fetchCategories();
+} catch {
+  // Si falla el fetch de categorias, el header se renderiza sin dropdown
+}
 ---
 
 <header class="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-white/10">
@@ -12,8 +20,30 @@ import CartFlyout from '../shop/CartFlyout.jsx';
 
     <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-text-muted">
       <a href="/" class="hover:text-primary transition-colors">Inicio</a>
-      <a href="/?categoria=Camisetas" class="hover:text-primary transition-colors">Camisetas</a>
-      <a href="/?categoria=Accesorios" class="hover:text-primary transition-colors">Accesorios</a>
+      {categories.length > 0 ? (
+        <div class="relative group">
+          <a href="/camisetas" class="hover:text-primary transition-colors flex items-center gap-1">
+            Categorias
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 transition-transform group-hover:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </a>
+          <div class="absolute top-full left-1/2 -translate-x-1/2 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+            <div class="bg-surface border border-white/10 rounded-xl shadow-2xl py-2 min-w-[180px]">
+              {categories.map((cat) => (
+                <a
+                  href={`/camisetas/${cat.slug}`}
+                  class="block px-4 py-2 text-sm text-text-muted hover:text-primary hover:bg-white/5 transition-colors"
+                >
+                  {cat.name}
+                </a>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <a href="/camisetas" class="hover:text-primary transition-colors">Categorias</a>
+      )}
     </nav>
 
     <div class="flex items-center gap-4">

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { getAuthHeaders } from '../../lib/authStore';
+import { adminFetch } from '../../lib/authStore';
 
 const API = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
 const MAX_IMAGES = 8;
@@ -15,9 +15,7 @@ export default function ImageManager({ productId }) {
   }, [productId]);
 
   async function load() {
-    const res = await fetch(`${API}/api/admin/products/${productId}/images`, {
-      headers: getAuthHeaders(),
-    });
+    const res = await adminFetch(`${API}/api/admin/products/${productId}/images`);
     const data = await res.json();
     setImages(data.images || []);
   }
@@ -29,9 +27,8 @@ export default function ImageManager({ productId }) {
     setError(null);
     const form = new FormData();
     form.append('image', file);
-    const res = await fetch(`${API}/api/admin/products/${productId}/images`, {
+    const res = await adminFetch(`${API}/api/admin/products/${productId}/images`, {
       method: 'POST',
-      headers: getAuthHeaders(),
       body: form,
     });
     const data = await res.json();
@@ -46,9 +43,8 @@ export default function ImageManager({ productId }) {
   }
 
   async function handleSetPrimary(imageId) {
-    await fetch(`${API}/api/admin/products/${productId}/images/${imageId}/primary`, {
+    await adminFetch(`${API}/api/admin/products/${productId}/images/${imageId}/primary`, {
       method: 'PATCH',
-      headers: getAuthHeaders(),
     });
     setImages((prev) => prev.map((img) => ({ ...img, is_primary: img.id === imageId })));
   }
@@ -60,9 +56,9 @@ export default function ImageManager({ productId }) {
     [next[index], next[target]] = [next[target], next[index]];
     const reordered = next.map((img, i) => ({ ...img, display_order: i }));
     setImages(reordered);
-    await fetch(`${API}/api/admin/products/images/reorder`, {
+    await adminFetch(`${API}/api/admin/products/images/reorder`, {
       method: 'PATCH',
-      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         images: reordered.map(({ id, display_order }) => ({ id, display_order })),
       }),
@@ -71,9 +67,8 @@ export default function ImageManager({ productId }) {
 
   async function handleDelete(imageId) {
     if (!confirm('¿Eliminar esta imagen?')) return;
-    await fetch(`${API}/api/admin/products/images/${imageId}`, {
+    await adminFetch(`${API}/api/admin/products/images/${imageId}`, {
       method: 'DELETE',
-      headers: getAuthHeaders(),
     });
     setImages((prev) => prev.filter((img) => img.id !== imageId));
   }

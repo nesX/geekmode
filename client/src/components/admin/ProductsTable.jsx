@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getAuthHeaders } from '../../lib/authStore';
+import { adminFetch } from '../../lib/authStore';
 import ProductModal from './ProductModal.jsx';
 import VariantsModal from './VariantsModal.jsx';
 import { Plus, Pencil, Layers, XCircle, Package, Loader2 } from 'lucide-react';
@@ -28,9 +28,7 @@ export default function ProductsTable() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/api/admin/products`, {
-        headers: { ...getAuthHeaders() },
-      });
+      const res = await adminFetch(`${API_URL}/api/admin/products`);
       if (!res.ok) throw new Error('Error cargando productos');
       const data = await res.json();
       setProducts(data.products);
@@ -46,9 +44,8 @@ export default function ProductsTable() {
   const handleDeactivate = async (id, name) => {
     if (!confirm(`Desactivar "${name}"? El producto dejara de mostrarse en la tienda.`)) return;
     try {
-      const res = await fetch(`${API_URL}/api/admin/products/${id}`, {
+      const res = await adminFetch(`${API_URL}/api/admin/products/${id}`, {
         method: 'DELETE',
-        headers: { ...getAuthHeaders() },
       });
       if (!res.ok) throw new Error('Error al desactivar');
       fetchProducts();

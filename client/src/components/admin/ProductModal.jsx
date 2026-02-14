@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { getAuthHeaders } from '../../lib/authStore';
+import { useState, useRef, useEffect } from 'react';
+import { adminFetch } from '../../lib/authStore';
 import useImageUpload from '../../lib/useImageUpload';
 import ImageManager from './ImageManager';
 import { X, Loader2, ImagePlus } from 'lucide-react';
@@ -18,6 +18,30 @@ export default function ProductModal({ product, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
+  // Categories
+  const [allCategories, setAllCategories] = useState([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
+
+  useEffect(() => {
+    adminFetch(`${API_URL}/api/admin/categories`)
+      .then((r) => r.json())
+      .then((data) => setAllCategories(data.categories.filter((c) => c.is_active)))
+      .catch(() => {});
+
+    if (isEdit) {
+      adminFetch(`${API_URL}/api/admin/products/${product.id}/categories`)
+        .then((r) => r.json())
+        .then((data) => setSelectedCategoryIds(data.categories.map((c) => c.id)))
+        .catch(() => {});
+    }
+  }, []);
+
+  const toggleCategory = (id) => {
+    setSelectedCategoryIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
   const { files, previews, errors: imageErrors, handleSelect, removeFile } = useImageUpload();
   const fileInputRef = useRef(null);
 
@@ -35,16 +59,18 @@ export default function ProductModal({ product, onClose, onSaved }) {
     setError(null);
 
     try {
+      let productId;
       if (isEdit) {
+        productId = product.id;
         const body = {
           name: form.name,
           base_price: Number(form.base_price),
           description: form.description || undefined,
           image_url: form.image_url || undefined,
         };
-        const res = await fetch(`${API_URL}/api/admin/products/${product.id}`, {
+        const res = await adminFetch(`${API_URL}/api/admin/products/${product.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
         const data = await res.json();
@@ -57,13 +83,22 @@ export default function ProductModal({ product, onClose, onSaved }) {
         if (form.image_url) formData.append('image_url', form.image_url);
         files.forEach((file) => formData.append('images', file));
 
-        const res = await fetch(`${API_URL}/api/admin/products`, {
+        const res = await adminFetch(`${API_URL}/api/admin/products`, {
           method: 'POST',
-          headers: getAuthHeaders(),
           body: formData,
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Error al crear');
+        productId = data.product.id;
+      }
+
+      // Save categories
+      if (selectedCategoryIds.length > 0) {
+        await adminFetch(`${API_URL}/api/admin/products/${productId}/categories`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categoryIds: selectedCategoryIds }),
+        });
       }
 
       onSaved();
@@ -134,6 +169,29 @@ export default function ProductModal({ product, onClose, onSaved }) {
               placeholder="Descripcion del producto..."
             />
           </div>
+
+          {/* Categories */}
+          {allCategories.length > 0 && (
+            <div>
+              <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5">Categorias</label>
+              <div className="flex flex-wrap gap-2">
+                {allCategories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => toggleCategory(cat.id)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                      selectedCategoryIds.includes(cat.id)
+                        ? 'bg-primary/20 border-primary/50 text-primary'
+                        : 'bg-background border-white/10 text-text-muted hover:border-white/20'
+                    }`}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Image section */}
           {isEdit ? (

@@ -1,18 +1,21 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import ProductCard from '../components/shop/ProductCard.astro';
-import { fetchProducts } from '../lib/api';
+import { fetchHomeData } from '../lib/api';
 
-const rawProducts = await fetchProducts();
-const featuredProducts = rawProducts.slice(0, 8).map((p) => ({
+const { newest, categories } = await fetchHomeData();
+
+const mapProduct = (p, categoryName = 'Geek') => ({
   id: p.id,
   slug: p.slug,
   name: p.name,
   price: Number(p.base_price),
   description: p.description,
   images: [p.image_url],
-  category: 'Geek',
-}));
+  category: categoryName,
+});
+
+const newestProducts = newest.map((p) => mapProduct(p));
 ---
 
 <Layout title="Inicio">
@@ -66,7 +69,7 @@ const featuredProducts = rawProducts.slice(0, 8).map((p) => ({
     </div>
   </section>
 
-  <!-- Product Grid -->
+  <!-- Nuevos Lanzamientos -->
   <section id="productos">
     <div class="flex items-end justify-between mb-8">
       <div>
@@ -77,11 +80,31 @@ const featuredProducts = rawProducts.slice(0, 8).map((p) => ({
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-      {featuredProducts.map((product) => (
-        <ProductCard product={product} />
+      {newestProducts.map((product, i) => (
+        <ProductCard product={product} priority={i < 4} />
       ))}
     </div>
   </section>
+
+  <!-- Secciones por Categoría -->
+  {categories.map((cat) => (
+    <section class="mt-16">
+      <div class="flex items-center gap-8 mb-2">
+        <div class="flex-1 h-px bg-white/20"></div>
+        <h2 class="text-3xl font-bold text-text-main shrink-0">{cat.name}</h2>
+        <div class="flex-1 h-px bg-white/20"></div>
+      </div>
+      <div class="text-center mb-8">
+        <a href={`/camisetas/${cat.slug}`} class="text-secondary font-semibold hover:text-primary transition-colors">Ver todos</a>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {cat.products.map((p) => (
+          <ProductCard product={mapProduct(p, cat.name)} priority={false} />
+        ))}
+      </div>
+    </section>
+  ))}
 
   <!-- Features -->
   <section class="mt-20 py-16 border-y border-white/5 grid md:grid-cols-3 gap-12 bg-surface/30 rounded-3xl px-8">

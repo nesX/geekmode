@@ -1,0 +1,166 @@
+
+
+# Plan de Implementación — Categorías
+
+## Modelo de datos
+
+Una sola tabla `categories` plana sin jerarquía. Agregar sql como migración separada:
+
+```sql
+TABLE categories (
+  id, name, slug, description, is_active
+)
+
+TABLE product_categories (
+  product_id REFERENCES products(id),
+  category_id REFERENCES categories(id),
+  PRIMARY KEY (product_id, category_id)
+)
+```
+
+Índices necesarios: sobre `categories.slug` para las queries de la tienda, y sobre `product_categories.category_id` para filtrar productos por categoría eficientemente.
+
+---
+
+## Backend — Capas
+
+### Repositorio `category.repository.js`
+
+Seis funciones:
+
+- `findAll()` — todas las categorías incluyendo inactivas, para el admin
+- `findAllActive()` — solo activas, para el dropdown de la tienda y el formulario de producto
+- `findBySlug(slug)` — para la página `/camisetas/[slug]`, trae la categoría con sus productos asociados usando JOIN con `product_categories` y `products`
+- `create(data)` — insert en `categories`
+- `update(id, data)` — actualiza nombre y descripción, nunca el slug
+- `deactivate(id)` — soft delete, primero verifica que no tenga productos activos asociados
+
+### Repositorio — funciones en `product.repository.js`
+
+Dos funciones adicionales para gestionar la relación:
+
+- `setCategories(productId, categoryIds)` — reemplaza todas las categorías de un producto en una transacción: primero `DELETE` en `product_categories` donde `product_id = $1`, luego `INSERT` de los nuevos. Así el admin puede agregar y quitar en una sola operación
+- `findCategoriesByProductId(productId)` — para mostrar las categorías actuales al editar un producto
+
+### Service `category.service.js`
+
+- `getAllCategories()` — para el admin
+- `getActiveCategories()` — para la tienda
+- `getCategoryBySlug(slug)` — valida que exista y esté activa, lanza `CATEGORY_NOT_FOUND` si no
+- `createCategory(data)` — genera el slug desde el nombre usando slugify, verifica que no exista uno igual
+- `updateCategory(id, data)` — actualiza solo nombre y descripción, el slug nunca se toca
+- `deactivateCategory(id)` — verifica que no tenga productos asociados antes de desactivar, si tiene lanza `CATEGORY_HAS_PRODUCTS` con el conteo
+
+### Service — en `product.service.js`
+
+- `updateProductCategories(productId, categoryIds)` — llama a `setCategories` del repositorio
+
+### Controllers
+
+Dos controllers nuevos o ampliar los existentes:
+
+`admin.category.controller.js` — handlers para el CRUD del admin con validación Zod: nombre mínimo 2 caracteres, descripción opcional.
+
+Agregar en `admin.product.controller.js` un handler `updateCategories` que recibe un array de `categoryIds` y llama al service.
+
+### Rutas
+
+En `admin.routes.js` agregar:
+
+```
+GET    /api/admin/categories
+POST   /api/admin/categories
+PUT    /api/admin/categories/:id
+DELETE /api/admin/categories/:id
+PATCH  /api/admin/products/:id/categories
+```
+
+En `public.routes.js` agregar:
+
+```
+GET /api/categories
+GET /api/categories/:slug/products
+```
+
+---
+
+## Frontend — Tienda pública
+
+### Página `/camisetas`
+
+Nueva página `client/src/pages/camisetas/index.astro`. Muestra todas las categorías activas como cards o grid. Cada card lleva a `/camisetas/[slug]`. Llama a `GET /api/categories`.
+
+### Página `/camisetas/[slug]`
+
+Nueva página `client/src/pages/camisetas/[slug].astro`. Usa `getStaticPaths()` que llama a `GET /api/categories` para generar todas las rutas en build time. Cada página muestra los productos de esa categoría. Llama a `GET /api/categories/:slug/products`.
+
+### Dropdown de navegación
+
+Modificar `Header.astro` para incluir un dropdown que liste las categorías activas. El dropdown se genera en build time con los datos de `GET /api/categories`, sin JavaScript. Si las categorías cambian frecuentemente, evaluar SSR en lugar de static.
+
+---
+
+## Frontend — Panel Admin
+
+### Vista de categorías
+
+Nueva vista dentro del `AdminDashboard.jsx`. Tabla con columnas: nombre, slug, estado activo/inactivo y cantidad de productos asociados. Botones por fila: editar y desactivar. El botón desactivar muestra el conteo de productos antes de confirmar si tiene productos asociados.
+
+### Modal de categorías
+
+Nuevo `CategoryModal.jsx`. Formulario con nombre y descripción. El slug se genera automáticamente en el backend, mostrarlo como campo de solo lectura en edición para que el admin sepa cuál es la URL.
+
+### Selector de categorías en `ProductModal.jsx`
+
+Al editar o crear un producto, agregar debajo del formulario actual un selector múltiple de categorías. Muestra todas las categorías activas como checkboxes. Las categorías actuales del producto llegan precargadas al abrir el modal en modo edición. Al guardar, llama a `PATCH /api/admin/products/:id/categories` con el array de ids seleccionados.
+
+---
+
+## Consideraciones importantes para el agente
+
+**El slug nunca se modifica después de creado.** El agente debe asegurarse de que el endpoint `PUT /api/admin/categories/:id` ignore el campo slug aunque llegue en el body.
+
+**`setCategories` debe ser una transacción.** Delete + Insert en una sola transacción para evitar estados inconsistentes si falla a mitad.
+
+**`getStaticPaths` en Astro** debe llamar a las categorías en build time. Si se agrega una categoría nueva en el admin, se necesita un nuevo build para que aparezca la página. El agente debe dejar un comentario en el código indicando esto.
+
+**El dropdown del header** debe mostrar solo categorías con al menos un producto activo asociado. Agregar este filtro en la query de `findAllActive()` o como función separada `findAllWithProducts()`.
+
+
+
+
+
+
+
+
+ Todo implementado. Aqui el resumen de lo creado:                                                                                                                                                                                                            
+                                                                                           
+  Archivos nuevos (9):                                                                                                                                                                                                                                        
+                                                                                                                                                                                                                                                              
+  Backend:                                                                                                                                                                                                                                                    
+  - server/src/migrations/002_categories.sql — Tablas categories + product_categories con indices                                                                                                                                                             
+  - server/src/repositories/category.repository.js — findAll, findAllActive, findAllWithProducts, findBySlug, create, update, deactivate, countActiveProducts                                                                                                 
+  - server/src/services/category.service.js — Logica de negocio con slugify, validacion de productos asociados
+  - server/src/controllers/admin.category.controller.js — CRUD admin + gestion de categorias por producto                                                                                                                                                     
+  - server/src/controllers/category.controller.js — Endpoints publicos (categorias con productos, por slug)                                                                                                                                                   
+                                                                                                                                                                                                                                                              
+  Frontend Admin:                                                                                                                                                                                                                                             
+  - client/src/components/admin/CategoriesTable.jsx — Tabla de categorias con CRUD
+  - client/src/components/admin/CategoryModal.jsx — Modal crear/editar (slug readonly en edicion)
+
+  Frontend Publico:
+  - client/src/pages/camisetas/index.astro — Grid de categorias
+  - client/src/pages/camisetas/[slug].astro — Productos por categoria (con getStaticPaths)
+
+  Archivos modificados (7):
+
+  - product.repository.js — +setCategories() (transaccional) y findCategoriesByProductId()
+  - product.service.js — +updateProductCategories() y getProductCategories()
+  - admin.routes.js — +6 rutas de categorias
+  - public.routes.js — +2 rutas publicas de categorias
+  - AdminDashboard.jsx — +tab "Categorias" en sidebar
+  - ProductModal.jsx — +selector de categorias con toggle buttons
+  - Header.astro — Dropdown de categorias dinamico (solo muestra las que tienen productos)
+  - client/src/lib/api.js — +fetchCategories() y fetchCategoryBySlug()
+
+  Para activar, necesitas correr la migracion 002_categories.sql contra la base de datos.

@@ -1,0 +1,57 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import ProductCard from '../../components/shop/ProductCard.astro';
+import { fetchCategories, fetchCategoryBySlug } from '../../lib/api';
+import { ArrowLeft } from 'lucide-react';
+
+// Las rutas se generan en build time. Si se agrega una categoria nueva
+// en el admin, se necesita un nuevo build para que aparezca la pagina.
+export async function getStaticPaths() {
+  const categories = await fetchCategories();
+  return categories.map((c) => ({
+    params: { slug: c.slug },
+  }));
+}
+
+const { slug } = Astro.params;
+const { category, products } = await fetchCategoryBySlug(slug);
+
+const mappedProducts = products.map((p) => ({
+  id: p.id,
+  slug: p.slug,
+  name: p.name,
+  price: Number(p.base_price),
+  description: p.description,
+  images: [p.image_url || '/images/camiseta-template.png'],
+  category: category.name,
+}));
+---
+
+<Layout title={category.name} description={category.description}>
+  <div class="mb-8">
+    <a href="/camisetas" class="inline-flex items-center gap-2 text-text-muted hover:text-primary transition-colors font-medium">
+      <ArrowLeft className="w-4 h-4" />
+      Todas las categorias
+    </a>
+  </div>
+
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold text-text-main">{category.name}</h1>
+    {category.description && (
+      <p class="text-text-muted mt-2">{category.description}</p>
+    )}
+    <p class="text-sm text-text-muted mt-1">{mappedProducts.length} producto(s)</p>
+  </div>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    {mappedProducts.map((product, i) => (
+      <ProductCard product={product} priority={i < 4} />
+    ))}
+  </div>
+
+  {mappedProducts.length === 0 && (
+    <div class="text-center py-24 text-text-muted">
+      <p>No hay productos en esta categoria aun.</p>
+    </div>
+  )}
+</Layout>

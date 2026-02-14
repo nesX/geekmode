@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '@nanostores/react';
 import { authUser, logout } from '../../lib/authStore';
 import ProductsTable from './ProductsTable.jsx';
+import CategoriesTable from './CategoriesTable.jsx';
 import {
   LayoutDashboard,
   Package,
@@ -12,7 +13,8 @@ import {
   TrendingUp,
   DollarSign,
   Box,
-  Eye
+  Eye,
+  Tag
 } from 'lucide-react';
 
 function DashboardContent({ user }) {
@@ -86,6 +88,7 @@ function DashboardContent({ user }) {
 const views = [
   { key: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { key: 'products', icon: Package, label: 'Productos' },
+  { key: 'categories', icon: Tag, label: 'Categorias' },
   { key: 'orders', icon: ShoppingCart, label: 'Pedidos' },
   { key: 'customers', icon: Users, label: 'Clientes' },
   { key: 'settings', icon: Settings, label: 'Configuracion' },
@@ -105,6 +108,7 @@ export default function AdminDashboard() {
   const viewTitles = {
     dashboard: 'Dashboard',
     products: 'Productos',
+    categories: 'Categorias',
     orders: 'Pedidos',
     customers: 'Clientes',
     settings: 'Configuracion',
@@ -196,6 +200,7 @@ export default function AdminDashboard() {
         <div className="flex-1 p-6 overflow-auto">
           {activeView === 'dashboard' && <DashboardContent user={user} />}
           {activeView === 'products' && <ProductsTable />}
+          {activeView === 'categories' && <CategoriesTable />}
           {activeView === 'orders' && (
             <div className="flex flex-col items-center justify-center py-24 text-text-muted">
               <ShoppingCart className="w-16 h-16 mb-4 opacity-50" />

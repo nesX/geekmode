@@ -1,4 +1,5 @@
 import * as productRepo from '../repositories/product.repository.js';
+import * as categoryRepo from '../repositories/category.repository.js';
 
 export async function getAllProducts() {
   return productRepo.findAllActive();
@@ -29,6 +30,22 @@ export async function getProductById(id) {
     throw new Error('PRODUCT_NOT_FOUND');
   }
   return product;
+}
+
+export async function getHomeData() {
+  const newest = await productRepo.findNewest(8);
+  const activeCategories = await categoryRepo.findAllWithProducts();
+
+  const categories = await Promise.all(
+    activeCategories.map(async (cat) => ({
+      id: cat.id,
+      name: cat.name,
+      slug: cat.slug,
+      products: await productRepo.findByCategoryId(cat.id, 8),
+    }))
+  );
+
+  return { newest, categories };
 }
 
 // ── Admin functions ──
@@ -82,4 +99,14 @@ export async function updateVariantStock(variantId, stock) {
 
 export async function getVariantsByProductId(productId) {
   return productRepo.findVariantsByProductId(productId);
+}
+
+export async function updateProductCategories(productId, categoryIds) {
+  const product = await productRepo.findById(productId);
+  if (!product) throw new Error('PRODUCT_NOT_FOUND');
+  await productRepo.setCategories(productId, categoryIds);
+}
+
+export async function getProductCategories(productId) {
+  return productRepo.findCategoriesByProductId(productId);
 }

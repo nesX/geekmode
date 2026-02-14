@@ -1,22 +1,19 @@
 ---
 import { formatPrice } from '../../utils/format';
 
-/**
- * @typedef {Object} Props
- * @property {Object} product
- */
-
-const { product } = Astro.props;
+const { product, priority = false } = Astro.props;
+const imageUrl = product.images[0] || '/images/camiseta-template.png';
 ---
 
 <article class="group bg-surface rounded-xl border border-white/10 overflow-hidden hover:border-primary/50 transition-all duration-300">
   <a href={`/producto/${product.slug}`} class="block">
     <div class="aspect-square bg-background overflow-hidden relative">
       <img
-        src={product.images[0]}
+        src={imageUrl}
         alt={product.name}
         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
-        loading="lazy"
+        loading={priority ? "eager" : "lazy"}
+        fetchpriority={priority ? "high" : undefined}
         width="400"
         height="400"
       />

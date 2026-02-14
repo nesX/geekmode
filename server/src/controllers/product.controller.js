@@ -11,6 +11,16 @@ export async function getProducts(req, res) {
   }
 }
 
+export async function getHomeData(req, res) {
+  try {
+    const data = await productService.getHomeData();
+    res.json(data);
+  } catch (err) {
+    logger.error('product.controller', `Error fetching home data: ${err.message}`);
+    res.status(500).json({ message: 'Error al obtener datos del home' });
+  }
+}
+
 export async function getProductBySlug(req, res) {
   try {
     const product = await productService.getProductBySlug(req.params.slug);

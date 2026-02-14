@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as productController from '../controllers/product.controller.js';
+import * as categoryController from '../controllers/category.controller.js';
 
 const router = Router();
 
@@ -15,6 +16,12 @@ router.get('/health', (req, res) => {
 });
 
 /**
+ * GET /api/home
+ * Home page data (newest + categories with products)
+ */
+router.get('/home', productController.getHomeData);
+
+/**
  * GET /api/products
  * List all active products
  */
@@ -25,5 +32,9 @@ router.get('/products', productController.getProducts);
  * Get product detail by slug
  */
 router.get('/products/:slug', productController.getProductBySlug);
+
+// ── Categories ──
+router.get('/categories', categoryController.getCategories);
+router.get('/categories/:slug/products', categoryController.getCategoryBySlug);
 
 export default router;

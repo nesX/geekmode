@@ -9,6 +9,7 @@ import * as adminProductController from '../controllers/admin.product.controller
 import logger from '../utils/logger.js';
 import { uploadImage as multerUpload, uploadImages } from '../middlewares/upload.middleware.js';
 import * as imageController from '../controllers/admin.image.controller.js';
+import * as categoryController from '../controllers/admin.category.controller.js';
 
 const router = Router();
 
@@ -98,5 +99,15 @@ router.post('/products/:productId/images', requireAdmin, multerUpload.single('im
 router.patch('/products/:productId/images/:imageId/primary', requireAdmin, imageController.setPrimary);
 router.patch('/products/images/reorder', requireAdmin, imageController.reorderImages);
 router.delete('/products/images/:imageId', requireAdmin, imageController.deleteImage);
+
+// ── Categories ──
+router.get('/categories', requireAdmin, categoryController.getCategories);
+router.post('/categories', requireAdmin, categoryController.createCategory);
+router.put('/categories/:id', requireAdmin, categoryController.updateCategory);
+router.delete('/categories/:id', requireAdmin, categoryController.deactivateCategory);
+
+// ── Product Categories ──
+router.get('/products/:id/categories', requireAdmin, categoryController.getProductCategories);
+router.patch('/products/:id/categories', requireAdmin, categoryController.updateProductCategories);
 
 export default router;

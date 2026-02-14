@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getAuthHeaders } from '../../lib/authStore';
+import { adminFetch } from '../../lib/authStore';
 import { X, Plus, Loader2, Save } from 'lucide-react';
 import ImageManager from './ImageManager';
 
@@ -40,9 +40,9 @@ export default function VariantsModal({ product, onClose }) {
     setAdding(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/api/admin/products/${product.id}/variants`, {
+      const res = await adminFetch(`${API_URL}/api/admin/products/${product.id}/variants`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           size: newVariant.size,
           color: newVariant.color,
@@ -66,9 +66,9 @@ export default function VariantsModal({ product, onClose }) {
 
     setSavingStock((prev) => ({ ...prev, [variantId]: true }));
     try {
-      const res = await fetch(`${API_URL}/api/admin/variants/${variantId}/stock`, {
+      const res = await adminFetch(`${API_URL}/api/admin/variants/${variantId}/stock`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stock: Number(stock) }),
       });
       if (!res.ok) throw new Error('Error al actualizar stock');
