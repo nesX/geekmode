@@ -78,7 +78,7 @@ export default function ProductModal({ product, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="bg-surface rounded-2xl border border-white/10 shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col"
+        className="bg-surface rounded-2xl border border-white/10 shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -93,39 +93,41 @@ export default function ProductModal({ product, onClose, onSaved }) {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-auto p-6 space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5">Nombre *</label>
-            <input
-              type="text"
-              name="name"
-              required
-              minLength={3}
-              value={form.name}
-              onChange={handleChange}
-              className="w-full bg-background border border-white/10 rounded-lg px-4 py-2.5 text-text-main placeholder-text-muted/50 focus:outline-none focus:border-primary/50 transition-colors"
-              placeholder="Camiseta Developer Mode"
-            />
-          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5">Nombre *</label>
+              <input
+                type="text"
+                name="name"
+                required
+                minLength={3}
+                value={form.name}
+                onChange={handleChange}
+                className="w-full bg-background border border-white/10 rounded-lg px-4 py-2.5 text-text-main placeholder-text-muted/50 focus:outline-none focus:border-primary/50 transition-colors"
+                placeholder="Camiseta Developer Mode"
+              />
+            </div>
 
-          <div>
-            <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5">Precio (COP) *</label>
-            <input
-              type="number"
-              name="base_price"
-              required
-              min={1}
-              value={form.base_price}
-              onChange={handleChange}
-              className="w-full bg-background border border-white/10 rounded-lg px-4 py-2.5 text-text-main placeholder-text-muted/50 focus:outline-none focus:border-primary/50 transition-colors"
-              placeholder="55000"
-            />
+            <div>
+              <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5">Precio (COP) *</label>
+              <input
+                type="number"
+                name="base_price"
+                required
+                min={1}
+                value={form.base_price}
+                onChange={handleChange}
+                className="w-full bg-background border border-white/10 rounded-lg px-4 py-2.5 text-text-main placeholder-text-muted/50 focus:outline-none focus:border-primary/50 transition-colors"
+                placeholder="55000"
+              />
+            </div>
           </div>
 
           <div>
             <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5">Descripcion</label>
             <textarea
               name="description"
-              rows={5}
+              rows={7}
               value={form.description}
               onChange={handleChange}
               className="w-full bg-background border border-white/10 rounded-lg px-4 py-2.5 text-text-main placeholder-text-muted/50 focus:outline-none focus:border-primary/50 transition-colors resize-none"
@@ -154,18 +156,18 @@ export default function ProductModal({ product, onClose, onSaved }) {
                   fileInputRef.current.files = dt.files;
                   fileInputRef.current.dispatchEvent(new Event('change', { bubbles: true }));
                 }}
-                className={`border-2 border-dashed border-white/15 rounded-xl py-8 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/40 transition-colors ${files.length >= 8 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`border-2 border-dashed border-white/15 rounded-xl py-10 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-primary/40 transition-colors ${files.length >= 8 ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
-                <div className="flex items-center gap-1 text-text-muted">
-                  <ImagePlus className="w-6 h-6" />
-                  <span className="text-lg">+</span>
+                <div className="flex items-center gap-2 text-text-muted">
+                  <ImagePlus className="w-7 h-7" />
+                  <span className="text-xl font-light">+</span>
                 </div>
                 <p className="text-sm text-text-muted">
                   Arrastra imagenes o{' '}
                   <span className="text-primary underline">haz click para seleccionar</span>
                 </p>
-                <p className="text-xs text-text-muted/60">
-                  JPG, PNG o WebP (max. 5MB por imagen, hasta 8 imagenes)
+                <p className="text-xs text-text-muted/50">
+                  JPG, PNG, WebP o GIF (max. 5MB por imagen, hasta 8 imagenes)
                 </p>
               </div>
               <input
