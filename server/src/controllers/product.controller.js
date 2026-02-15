@@ -21,6 +21,16 @@ export async function getHomeData(req, res) {
   }
 }
 
+export async function getRelatedProducts(req, res) {
+  try {
+    const products = await productService.getRelatedProducts(Number(req.params.id));
+    res.json({ products });
+  } catch (err) {
+    logger.error('product.controller', `Error fetching related products: ${err.message}`);
+    res.status(500).json({ message: 'Error al obtener productos relacionados' });
+  }
+}
+
 export async function getProductBySlug(req, res) {
   try {
     const product = await productService.getProductBySlug(req.params.slug);

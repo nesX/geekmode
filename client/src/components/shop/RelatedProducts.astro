@@ -1,0 +1,48 @@
+---
+import { formatPrice } from '../../utils/format';
+
+const { products, categoryName, categorySlug } = Astro.props;
+---
+
+{products.length > 0 && (
+  <section class="mt-16">
+    <div class="flex items-center justify-between mb-8">
+      <h2 class="text-2xl md:text-3xl font-black text-text-main">También te puede gustar</h2>
+      {categorySlug && (
+        <a href={`/categoria/${categorySlug}`} class="text-sm font-semibold text-primary hover:text-primary/80 transition-colors">
+          Ver todos &rarr;
+        </a>
+      )}
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+      {products.map((p, idx) => (
+        <a
+          href={`/producto/${p.slug}`}
+          class:list={[
+            "group bg-surface rounded-xl border border-white/10 overflow-hidden hover:border-primary/50 transition-all duration-300",
+            idx >= 4 && "hidden md:block",
+          ]}
+        >
+          <div class="aspect-square bg-background overflow-hidden">
+            <img
+              src={p.image_url || '/images/camiseta-template.png'}
+              alt={p.name}
+              class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
+              loading="lazy"
+              width="400"
+              height="400"
+            />
+          </div>
+          <div class="p-3">
+            <h3 class="font-bold text-sm text-text-main group-hover:text-primary transition-colors truncate">
+              {p.name}
+            </h3>
+            <p class="text-base font-bold text-secondary mt-1">
+              {formatPrice(Number(p.base_price))}
+            </p>
+          </div>
+        </a>
+      ))}
+    </div>
+  </section>
+)}

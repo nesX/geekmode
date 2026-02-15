@@ -110,3 +110,9 @@ export async function updateProductCategories(productId, categoryIds) {
 export async function getProductCategories(productId) {
   return productRepo.findCategoriesByProductId(productId);
 }
+
+export async function getRelatedProducts(productId) {
+  const categories = await productRepo.findCategoriesByProductId(productId);
+  const categoryIds = categories.map(c => c.id);
+  return productRepo.findRelated(productId, categoryIds, 5);
+}

@@ -2,7 +2,8 @@
 import Layout from '../../layouts/Layout.astro';
 import AddToCartButton from '../../components/shop/AddToCartButton.jsx';
 import SizeSelector from '../../components/shop/SizeSelector.jsx';
-import { fetchProducts, fetchProductBySlug } from '../../lib/api';
+import RelatedProducts from '../../components/shop/RelatedProducts.astro';
+import { fetchProducts, fetchProductBySlug, fetchRelatedProducts } from '../../lib/api';
 import { formatPrice } from '../../utils/format';
 import { ArrowLeft, Share2, Heart } from 'lucide-react';
 
@@ -29,6 +30,11 @@ const product = {
   sizes,
   category: 'Geek',
 };
+
+let relatedProducts = [];
+try {
+  relatedProducts = await fetchRelatedProducts(raw.id);
+} catch { /* non-critical */ }
 ---
 
 <Layout title={product.name} description={product.description}>
@@ -112,6 +118,8 @@ const product = {
       </div>
     </div>
   </div>
+
+  <RelatedProducts products={relatedProducts} />
 </Layout>
 
 <script>

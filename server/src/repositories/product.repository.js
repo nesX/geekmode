@@ -185,6 +185,38 @@ export async function setCategories(productId, categoryIds) {
   }
 }
 
+export async function findRelated(productId, categoryIds, limit = 5) {
+  // Step 1: products sharing categories
+  const { rows: related } = await pool.query(`
+    SELECT p.id, p.name, p.slug, p.base_price,
+           COALESCE(pi.image_url, p.image_url) AS image_url
+    FROM products p
+    JOIN product_categories pc ON pc.product_id = p.id
+    LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = true
+    WHERE pc.category_id = ANY($2) AND p.id != $1 AND p.is_active = true
+    GROUP BY p.id, pi.image_url
+    ORDER BY p.created_at DESC
+    LIMIT $3
+  `, [productId, categoryIds, limit]);
+
+  if (related.length < limit) {
+    const excludeIds = [productId, ...related.map(r => r.id)];
+    const { rows: filler } = await pool.query(`
+      SELECT p.id, p.name, p.slug, p.base_price,
+             COALESCE(pi.image_url, p.image_url) AS image_url
+      FROM products p
+      LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = true
+      WHERE p.id != ALL($1) AND p.is_active = true
+      GROUP BY p.id, pi.image_url
+      ORDER BY p.created_at DESC
+      LIMIT $2
+    `, [excludeIds, limit - related.length]);
+    return [...related, ...filler];
+  }
+
+  return related;
+}
+
 export async function findCategoriesByProductId(productId) {
   const { rows } = await pool.query(
     `SELECT c.* FROM categories c

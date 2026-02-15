@@ -27,6 +27,13 @@ export async function fetchCategories() {
   return data.categories;
 }
 
+export async function fetchRelatedProducts(productId) {
+  const res = await fetch(`${API_URL}/api/products/${productId}/related`);
+  if (!res.ok) throw new Error('Failed to fetch related products');
+  const data = await res.json();
+  return data.products;
+}
+
 export async function fetchCategoryBySlug(slug) {
   const res = await fetch(`${API_URL}/api/categories/${slug}/products`);
   if (!res.ok) throw new Error('Failed to fetch category');

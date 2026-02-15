@@ -28,6 +28,12 @@ router.get('/home', productController.getHomeData);
 router.get('/products', productController.getProducts);
 
 /**
+ * GET /api/products/:id/related
+ * Get related products by product ID
+ */
+router.get('/products/:id/related', productController.getRelatedProducts);
+
+/**
  * GET /api/products/:slug
  * Get product detail by slug
  */
