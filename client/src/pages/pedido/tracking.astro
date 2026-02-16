@@ -1,0 +1,8 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import OrderTracking from '../../components/shop/OrderTracking.jsx';
+---
+
+<Layout title="Seguimiento de Pedido">
+  <OrderTracking client:only="react" />
+</Layout>

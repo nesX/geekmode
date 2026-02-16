@@ -32,6 +32,23 @@ export const env = {
   MEDIA_URL_PREFIX: process.env.MEDIA_URL_PREFIX || '/media/products',
   MAX_IMAGES_PER_PRODUCT: parseInt(process.env.MAX_IMAGES_PER_PRODUCT || '8', 10),
 
+  // Payments
+  paymentProvider: process.env.PAYMENT_PROVIDER || 'wompi',
+  wompiPublicKey: process.env.WOMPI_PUBLIC_KEY || '',
+  wompiPrivateKey: process.env.WOMPI_PRIVATE_KEY || '',
+  wompiEventsSecret: process.env.WOMPI_EVENTS_SECRET || '',
+
+  // Shipping
+  shippingCost: parseInt(process.env.SHIPPING_COST || '12000', 10),
+  freeShippingThreshold: parseInt(process.env.FREE_SHIPPING_THRESHOLD || '150000', 10),
+
+  // Email (Resend)
+  resendApiKey: process.env.RESEND_API_KEY || '',
+  emailFrom: process.env.EMAIL_FROM || 'GeekShop <noreply@geekshop.co>',
+
+  // Frontend
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:4321',
+
   // Database (optional)
   db: {
     host: process.env.DB_HOST || 'localhost',

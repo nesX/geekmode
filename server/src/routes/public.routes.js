@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as productController from '../controllers/product.controller.js';
 import * as categoryController from '../controllers/category.controller.js';
+import * as orderController from '../controllers/order.controller.js';
 
 const router = Router();
 
@@ -42,5 +43,10 @@ router.get('/products/:slug', productController.getProductBySlug);
 // ── Categories ──
 router.get('/categories', categoryController.getCategories);
 router.get('/categories/:slug/products', categoryController.getCategoryBySlug);
+
+// ── Orders ──
+router.post('/orders', orderController.createOrder);
+router.get('/orders/token/:token', orderController.getOrderByToken);
+router.get('/orders/:publicId/:phone', orderController.getOrderBySearch);
 
 export default router;

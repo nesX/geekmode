@@ -1,0 +1,128 @@
+
+
+
+Plan: Sección "También te puede gustar"                                  
+
+ Contexto
+
+ Agregar productos relacionados en la página de detalle de producto. Se resuelven en build time (SSG). El backend devuelve 5 productos que comparten categorías con el producto actual, con fallback a productos nuevos.
+
+ ---
+ 1. Backend — product.repository.js
+
+ Agregar función findRelated(productId, categoryIds, limit = 5):
+
+ -- Paso 1: productos que comparten categorías (excluye el actual)
+ SELECT p.id, p.name, p.slug, p.base_price,
+        COALESCE(pi.image_url, p.image_url) AS image_url
+ FROM products p
+ JOIN product_categories pc ON pc.product_id = p.id
+ LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = true
+ WHERE pc.category_id = ANY($2) AND p.id != $1 AND p.is_active = true
+ GROUP BY p.id, pi.image_url
+ ORDER BY p.created_at DESC
+ LIMIT $3
+
+ Si el resultado es menor a limit, completar con productos nuevos que no estén en el resultado ni sean el actual.
+
+ 2. Backend — product.service.js
+
+ Agregar función getRelatedProducts(productId, categoryIds):
+ - Llama a findRelated(productId, categoryIds, 5)
+ - Retorna el array directamente
+
+ 3. Backend — product.controller.js + public.routes.js
+
+ Agregar endpoint GET /api/products/:id/related para que Astro lo consuma en build time:
+ - Controller: recibe req.params.id, obtiene categorías del producto con findCategoriesByProductId, luego llama al service
+ - Route: router.get('/products/:id/related', productController.getRelatedProducts)
+
+ Nota: El todo dice "no endpoint nuevo", pero Astro necesita obtener los datos via HTTP en build time. Este endpoint solo se usa en build, no en el cliente.
+
+ 4. Frontend — lib/api.js
+
+ Agregar fetchRelatedProducts(productId):
+ export async function fetchRelatedProducts(productId) {
+   const res = await fetch(`${API_URL}/api/products/${productId}/related`);
+   if (!res.ok) throw new Error('Failed to fetch related products');
+   const data = await res.json();
+   return data.products;
+ }
+
+ 5. Frontend — [slug].astro
+
+ En el frontmatter, después de obtener el producto:
+ - Llamar fetchRelatedProducts(raw.id)
+ - Obtener las categorías del producto (ya disponibles o se pueden derivar)
+ - Pasar relatedProducts y la primera categoría al componente RelatedProducts
+ - Importar y renderizar <RelatedProducts> entre la descripción y el footer
+
+ 6. Frontend — Nuevo RelatedProducts.astro
+
+ Archivo: client/src/components/shop/RelatedProducts.astro
+
+ Props: products, categoryName, categorySlug
+
+ Estructura:
+ <section>
+   <div> ← header: h2 "También te puede gustar" + link "Ver todos →"
+   <div> ← grid 3-cols mobile / 5-cols desktop
+     Card simple × 5 (imagen, nombre truncado, precio)
+     4to: hidden md:block
+     5to: hidden lg:block
+   </div>
+ </section>
+
+ Cards simplificadas (no reusar ProductCard completo — sin badge, sin categoría, sin descripción). Solo: imagen con lazy loading, nombre con truncate, precio.
+
+ ---
+ Archivos a modificar
+
+ ┌──────────────────────────────────────────────────┬─────────────────────────────┐
+ │                     Archivo                      │           Cambio            │
+ ├──────────────────────────────────────────────────┼─────────────────────────────┤
+ │ server/src/repositories/product.repository.js    │ + findRelated()             │
+ ├──────────────────────────────────────────────────┼─────────────────────────────┤
+ │ server/src/services/product.service.js           │ + getRelatedProducts()      │
+ ├──────────────────────────────────────────────────┼─────────────────────────────┤
+ │ server/src/controllers/product.controller.js     │ + getRelatedProducts()      │
+ ├──────────────────────────────────────────────────┼─────────────────────────────┤
+ │ server/src/routes/public.routes.js               │ + GET /products/:id/related │
+ ├──────────────────────────────────────────────────┼─────────────────────────────┤
+ │ client/src/lib/api.js                            │ + fetchRelatedProducts()    │
+ ├──────────────────────────────────────────────────┼─────────────────────────────┤
+ │ client/src/pages/producto/[slug].astro           │ Fetch + render related      │
+ ├──────────────────────────────────────────────────┼─────────────────────────────┤
+ │ client/src/components/shop/RelatedProducts.astro │ Nuevo                       │
+ └──────────────────────────────────────────────────┴─────────────────────────────┘
+
+ Verificación
+
+ 1. Levantar el servidor y ejecutar curl http://localhost:3000/api/products/{id}/related para verificar que devuelve 5 productos
+ 2. Ejecutar npm run build en el cliente para verificar que las páginas se generan correctamente
+ 3. Verificar visualmente que la sección aparece en la página de detalle
+
+
+
+
+                                                                                                                                                                                                                                                              
+  Backend                                                                                                                                                                                                                                                     
+                                                                                                                                                                                                                                                              
+  1. server/src/repositories/product.repository.js — Added findRelated(productId, categoryIds, limit) that queries products sharing categories, with fallback to newest products if fewer than limit results.                                                 
+  2. server/src/services/product.service.js — Added getRelatedProducts(productId) that fetches product categories then calls the repository.                                                                                                                  
+  3. server/src/controllers/product.controller.js — Added getRelatedProducts handler that parses req.params.id and returns { products }.                                                                                                                      
+  4. server/src/routes/public.routes.js — Added GET /products/:id/related route before the :slug route to avoid parameter conflicts.
+
+  Frontend
+
+  5. client/src/lib/api.js — Added fetchRelatedProducts(productId) fetch function.
+  6. client/src/components/shop/RelatedProducts.astro — New file. Simplified card grid (image, truncated name, price). Responsive: 2 cols mobile, 3 sm, 4 md (4th card hidden md:block), 5 lg (5th card hidden lg:block). Matches existing design system.
+  7. client/src/pages/producto/[slug].astro — Imports RelatedProducts and fetchRelatedProducts, fetches related products with try/catch (non-critical), renders the section after the product details grid.
+
+  To verify
+
+  1. Start the server and run curl http://localhost:3000/api/products/{id}/related
+  2. Run npm run build in the client to verify SSG pages generate correctly
+  3. Check the product detail page visually for the "También te puede gustar" section
+
+

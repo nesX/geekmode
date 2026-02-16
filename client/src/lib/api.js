@@ -40,3 +40,30 @@ export async function fetchCategoryBySlug(slug) {
   const data = await res.json();
   return data;
 }
+
+export async function createOrder(orderData) {
+  const res = await fetch(`${API_URL}/api/orders`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(orderData),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || 'Error al crear el pedido');
+  }
+  return res.json();
+}
+
+export async function getOrderByToken(token) {
+  const res = await fetch(`${API_URL}/api/orders/token/${token}`);
+  if (!res.ok) throw new Error('Pedido no encontrado');
+  const data = await res.json();
+  return data.order;
+}
+
+export async function searchOrder(publicId, phone) {
+  const res = await fetch(`${API_URL}/api/orders/${publicId}/${phone}`);
+  if (!res.ok) throw new Error('Pedido no encontrado');
+  const data = await res.json();
+  return data.order;
+}

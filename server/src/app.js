@@ -7,6 +7,7 @@ import logger from './utils/logger.js';
 import { authMiddleware } from './middlewares/auth.middleware.js';
 import adminRoutes from './routes/admin.routes.js';
 import publicRoutes from './routes/public.routes.js';
+import webhookRoutes from './routes/webhooks.routes.js';
 
 const app = express();
 
@@ -28,6 +29,9 @@ if (env.isDevelopment) {
 if (env.isDevelopment) {
   app.use('/media/products', express.static('uploads/products'));
 }
+
+// Webhooks — raw body for signature verification, mounted before general JSON parser
+app.use('/api/webhooks', express.json(), webhookRoutes);
 
 // Body parsing
 app.use(express.json());

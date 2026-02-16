@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useStore } from '@nanostores/react';
 import { cartItems, removeItem, updateQuantity, cartTotal } from '../../lib/cartStore';
 import { isCartOpen, closeCart } from '../../lib/cartUiStore';
@@ -8,8 +9,10 @@ export default function CartFlyout() {
   const $isCartOpen = useStore(isCartOpen);
   const $cartItems = useStore(cartItems);
   const $cartTotal = useStore(cartTotal);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  if (!$isCartOpen) return null;
+  if (!mounted || !$isCartOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] overflow-hidden">
@@ -102,9 +105,13 @@ export default function CartFlyout() {
               <p className="text-xs text-text-muted mb-6">
                 Impuestos y envío calculados al finalizar la compra.
               </p>
-              <button className="w-full bg-primary text-white py-4 rounded-xl font-bold hover:opacity-90 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)]">
+              <a
+                href="/checkout"
+                onClick={closeCart}
+                className="block w-full bg-primary text-white py-4 rounded-xl font-bold hover:opacity-90 transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] text-center"
+              >
                 Finalizar Compra
-              </button>
+              </a>
             </div>
           )}
         </div>

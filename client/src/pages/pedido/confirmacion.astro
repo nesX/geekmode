@@ -1,0 +1,8 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import OrderConfirmation from '../../components/shop/OrderConfirmation.jsx';
+---
+
+<Layout title="Pedido Confirmado">
+  <OrderConfirmation client:only="react" />
+</Layout>

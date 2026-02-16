@@ -1,0 +1,8 @@
+---
+import Layout from '../layouts/Layout.astro';
+import CheckoutForm from '../components/shop/CheckoutForm.jsx';
+---
+
+<Layout title="Checkout">
+  <CheckoutForm client:only="react" />
+</Layout>

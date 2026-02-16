@@ -69,3 +69,5 @@ export const cartTotal = computed(cartItems, (items) => {
 export const cartCount = computed(cartItems, (items) => {
   return items.reduce((total, item) => total + item.quantity, 0);
 });
+
+export const clearCart = () => cartItems.set([]);
