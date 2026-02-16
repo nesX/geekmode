@@ -67,3 +67,4 @@ export async function searchOrder(publicId, phone) {
   const data = await res.json();
   return data.order;
 }
+

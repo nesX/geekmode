@@ -121,3 +121,35 @@ export async function getOrderByPhoneAndId(phone, publicId) {
   if (!order) throw new Error('ORDER_NOT_FOUND');
   return order;
 }
+
+const VALID_TRANSITIONS = {
+  PENDING_PAYMENT: ['PAID', 'CANCELLED'],
+  PAID: ['SHIPPED', 'CANCELLED'],
+  SHIPPED: ['DELIVERED', 'CANCELLED'],
+  DELIVERED: ['CANCELLED'],
+  CANCELLED: [],
+};
+
+export async function getOrders({ status, search, page } = {}) {
+  const { orders, total } = await orderRepo.findAll({ status, search, page });
+  const limit = 20;
+  return { orders, total, page: page || 1, totalPages: Math.ceil(total / limit) };
+}
+
+export async function getOrderDetail(publicId) {
+  const order = await orderRepo.findByPublicIdAdmin(publicId);
+  if (!order) throw new Error('ORDER_NOT_FOUND');
+  return order;
+}
+
+export async function updateOrderStatus(orderId, newStatus, note) {
+  const order = await orderRepo.findById(orderId);
+  if (!order) throw new Error('ORDER_NOT_FOUND');
+
+  const allowed = VALID_TRANSITIONS[order.status] || [];
+  if (!allowed.includes(newStatus)) {
+    throw new Error('INVALID_STATUS_TRANSITION');
+  }
+
+  return orderRepo.updateStatusAdmin(orderId, newStatus, note);
+}

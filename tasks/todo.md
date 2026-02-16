@@ -1,258 +1,169 @@
-Perfecto, eso es exactamente el factory pattern que planteamos antes. Con eso claro, aquí está el plan completo:
+
+
+# Instrucciones para el Agente — Gestión de Pedidos en el Admin
+
+## Contexto
+El admin gestiona los pedidos manualmente. La pasarela de pago actualiza el estado a `PAID` vía webhook automáticamente. El admin gestiona los estados posteriores: `SHIPPED`, `DELIVERED`, `CANCELLED`. Todo dentro del `AdminDashboard.jsx` existente como una vista nueva.
 
 ---
 
-# Plan — Flujo de Pedido
+## Backend
 
-## Principio de diseño
-El flujo de pedido nunca sabe qué pasarela está activa. Solo habla con una interfaz común. Cambiar de Wompi a cualquier otra pasarela implica crear un archivo nuevo y cambiar una variable de entorno. Nada más.
+### `repositories/order.repository.js`
 
----
+Agregar las siguientes funciones al repositorio existente:
 
-## Variables de entorno
+**`findAll({ status, search, page, limit })`** — Lista paginada de órdenes. Los parámetros son opcionales:
+- `status` filtra por estado exacto
+- `search` busca en `public_id` y `customer_phone` con `ILIKE`
+- `page` y `limit` para paginación, default `page=1` y `limit=20`
+- Ordenar por `created_at DESC`
+- Retornar también el total de registros para calcular páginas en el frontend
 
-Agregar a `.env.example`:
+Para cada orden traer: `id`, `public_id`, `customer_name`, `customer_phone`, `total_amount`, `shipping_cost`, `status`, `payment_method`, `created_at`. No traer los items en este listado, solo la cabecera.
 
-```env
-PAYMENT_PROVIDER=wompi
-WOMPI_PUBLIC_KEY=
-WOMPI_PRIVATE_KEY=
-WOMPI_EVENTS_SECRET=
-SHIPPING_COST=15000
-FREE_SHIPPING_THRESHOLD=150000
-FRONTEND_URL=http://localhost:4321
-```
+**`findByPublicIdAdmin(publicId)`** — Detalle completo de una orden para el admin. Traer todos los campos de `orders` más los items con JOIN a `variants` y `products` para mostrar nombre del producto, talla y color. Incluir el historial de estados desde `order_status_history` ordenado por `created_at ASC`.
 
----
+**`updateStatus(orderId, status, note)`** — Actualiza el estado en `orders` e inserta un registro en `order_status_history` con el nuevo estado y la nota opcional. Hacerlo en una transacción.
 
-## Modelo de datos
+### `services/order.service.js`
 
-### Modificaciones a la tabla `orders` existente
+Agregar al service existente:
 
-```sql
-ALTER TABLE orders
-ADD COLUMN email VARCHAR(255),
-ADD COLUMN city VARCHAR(100),
-ADD COLUMN department VARCHAR(100),
-ADD COLUMN shipping_cost DECIMAL(12,0) DEFAULT 0,
-ADD COLUMN payment_session_id VARCHAR(255),
-ADD COLUMN magic_token VARCHAR(255) UNIQUE,
-ADD COLUMN magic_token_expires_at TIMESTAMP WITH TIME ZONE;
-```
+**`getOrders({ status, search, page })`** — Llama al repositorio y retorna los datos paginados.
 
-### Tabla nueva `order_status_history`
+**`getOrderDetail(publicId)`** — Llama a `findByPublicIdAdmin`, lanza `ORDER_NOT_FOUND` si no existe.
 
-Registra cada cambio de estado de la orden para trazabilidad completa:
-
-```sql
-CREATE TABLE order_status_history (
-    id SERIAL PRIMARY KEY,
-    order_id INTEGER REFERENCES orders(id),
-    status VARCHAR(50) NOT NULL,
-    note TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-```
-
----
-
-## Arquitectura del módulo de pagos
-
-### Estructura de carpetas
+**`updateOrderStatus(orderId, newStatus, note)`** — Valida que la transición de estado sea válida antes de actualizar. Las transiciones permitidas son:
 
 ```
-server/src/
-└── payments/
-    ├── payment.interface.js    ← contrato común
-    ├── wompi.adapter.js        ← implementación Wompi
-    └── payment.factory.js      ← elige adaptador según .env
+PENDING_PAYMENT → PAID → SHIPPED → DELIVERED
+cualquier estado → CANCELLED
 ```
 
-### Contrato `payment.interface.js`
+Si la transición no es válida lanza `INVALID_STATUS_TRANSITION`. Esto evita que el admin marque un pedido como `SHIPPED` sin haberlo marcado como `PAID` primero.
 
-Define los tres métodos que cualquier adaptador debe implementar:
+### `controllers/admin.order.controller.js`
 
-- `createSession(order)` — recibe la orden completa, devuelve lo que el frontend necesita para iniciar el pago. Para Wompi devuelve los parámetros del widget. Para otra pasarela devolvería su equivalente.
-- `verifyWebhook(payload, signature)` — verifica que la notificación viene realmente de la pasarela y no es un request malicioso. Devuelve booleano.
-- `parseWebhookEvent(payload)` — extrae del payload de la pasarela los datos normalizados: `{ orderId, status, paymentSessionId }`. Siempre el mismo formato sin importar la pasarela.
+Archivo nuevo con tres handlers:
 
-### `payment.factory.js`
+**`getOrders`** — Extrae `status`, `search` y `page` de `req.query`, llama al service, responde con `{ orders, total, page, totalPages }`.
 
-Lee `PAYMENT_PROVIDER` del env y retorna el adaptador correspondiente. Si el provider no existe lanza un error al iniciar el servidor, no en runtime.
+**`getOrderDetail`** — Extrae `publicId` de `req.params`, llama al service, responde con el detalle completo o `404` si no existe.
 
----
+**`updateStatus`** — Valida con Zod que `status` sea uno de los valores permitidos y que `note` sea string opcional. Llama al service, responde con la orden actualizada o el error de transición inválida.
 
-## Capas del backend
-
-### Repositorios
-
-**`order.repository.js`** — funciones:
-
-- `create(orderData)` — inserta en `orders` y en `order_items` dentro de una transacción. Retorna la orden completa.
-- `findByPublicId(publicId)` — para la página de consulta del cliente
-- `findByMagicToken(token)` — para el link mágico del email
-- `findByPhoneAndPublicId(phone, publicId)` — búsqueda manual como fallback
-- `updateStatus(orderId, status)` — cambia el estado y registra en `order_status_history`
-- `updatePaymentSession(orderId, paymentSessionId)` — guarda el ID de sesión de la pasarela
-- `findById(orderId)` — para el admin
-
-**`stock.repository.js`** — archivo nuevo separado, una sola función:
-
-- `decrementStock(variantId, quantity)` — `UPDATE variants SET stock = stock - $2 WHERE id = $1 AND stock >= $2 RETURNING id`. Si retorna 0 filas significa que no había stock suficiente en ese momento.
-
-### Services
-
-**`order.service.js`**:
-
-- `calculateShipping(subtotal)` — lee `SHIPPING_COST` y `FREE_SHIPPING_THRESHOLD` del env, retorna el costo de envío
-- `generatePublicId()` — genera `ORD-XXXX` con número random de 4 dígitos, verifica que no exista en BD
-- `generateMagicToken()` — genera un token único con `crypto.randomBytes`, establece expiración de 30 días
-- `createOrder(customerData, cartItems)` — orquesta todo: valida stock, calcula total, calcula envío, genera IDs, crea la orden en BD, llama al payment factory para crear la sesión, retorna la respuesta al frontend
-- `confirmPayment(webhookPayload, signature)` — verifica el webhook, actualiza el estado a `PAID`, llama a `decrementStock` por cada item en una transacción
-- `getOrderByToken(token)` — valida que el token no haya expirado, retorna la orden con sus items
-- `getOrderByPhoneAndId(phone, publicId)` — para búsqueda manual
-
-**`email.service.js`** — archivo nuevo:
-
-- `sendOrderConfirmation(order, magicToken)` — arma el email con el número de pedido, link mágico y resumen. Usa Resend como proveedor. Si falla, registra el error con el logger pero no lanza excepción para no interrumpir el flujo del pedido. El pedido existe aunque el email falle.
-
-### Controllers
-
-**`order.controller.js`**:
-
-- `createOrder` — valida con Zod, llama al service, retorna `{ publicId, paymentData }`
-- `getOrderByToken` — para el link mágico
-- `getOrderBySearch` — para búsqueda por número y teléfono
-- `handleWebhook` — para las notificaciones de la pasarela
-
-### Validación Zod del body de crear orden
+### Validación Zod
 
 ```
-customer_name: string min 2
-customer_email: email válido
-customer_phone: string min 10
-customer_address: string min 5
-city: string min 2
-department: string min 2
-items: array min 1 de { variant_id: number, quantity: number min 1 }
+UpdateStatusSchema:
+  status: enum ['PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED']
+  note: string opcional, max 500 caracteres
 ```
 
-### Rutas
+### `routes/admin.routes.js`
 
-En `public.routes.js` agregar:
-
-```
-POST /api/orders                          → createOrder
-GET  /api/orders/token/:token             → getOrderByToken
-GET  /api/orders/:publicId/:phone         → getOrderBySearch
-```
-
-En `webhooks.routes.js` agregar:
+Agregar al router admin existente:
 
 ```
-POST /api/webhooks/payment                → handleWebhook
+GET   /api/admin/orders                  → getOrders
+GET   /api/admin/orders/:publicId        → getOrderDetail
+PATCH /api/admin/orders/:orderId/status  → updateStatus
 ```
 
-El endpoint de webhook usa el nombre genérico `/payment` en lugar de `/wompi` para que no cambie si se cambia la pasarela.
+Todas protegidas con el middleware `requireAdmin` existente.
 
 ---
 
 ## Frontend
 
-### Flujo de pantallas
+### Vista nueva en `AdminDashboard.jsx`
+
+Agregar "Pedidos" a la navegación existente del dashboard. Al seleccionarla renderiza el componente `OrdersView.jsx`.
+
+### Componente nuevo `OrdersView.jsx`
+
+Vista principal de pedidos con dos sub-componentes: la tabla de listado y el panel de detalle.
+
+**Estructura de la vista:**
 
 ```
-ProductCard → CartFlyout → /checkout → /pedido/confirmacion?id=ORD-1234
-                                     ↓
-                               Widget de pago
-                                     ↓
-                          Wompi redirige a /pedido/confirmacion
+┌─────────────────────────────────────────┐
+│ Filtros: [Todos][Pendiente][Pagado]      │
+│          [Enviado][Entregado][Cancelado] │
+│ Búsqueda: [ número o teléfono...      ] │
+├─────────────────────────────────────────┤
+│ Tabla de pedidos                        │
+│                                         │
+│ #ORD  │ Cliente │ Total │ Estado │ Fecha│
+│ ───── │ ─────── │ ───── │ ────── │ ────│
+│ 1234  │ Juan    │ 55000 │  PAID  │ hoy │
+├─────────────────────────────────────────┤
+│ Paginación: < 1 2 3 ... >               │
+└─────────────────────────────────────────┘
 ```
 
-### `/checkout` — página nueva
+Al hacer clic en una fila abre el panel de detalle.
 
-Componente React con `client:only` por ser interactivo. Tres secciones visibles simultáneamente en desktop, en pasos en mobile:
+**Comportamiento de los filtros:** Son botones de selección única. Al hacer clic llaman a `GET /api/admin/orders?status=PAID`. El filtro `Todos` no envía el parámetro `status`.
 
-**Sección 1 — Resumen del carrito**
-Solo lectura. Productos, cantidades, subtotal. Calculado desde Nano Stores.
+**Comportamiento de la búsqueda:** Input con debounce de 400ms. Llama a `GET /api/admin/orders?search=3001234567` mientras el usuario escribe. No requiere presionar Enter.
 
-**Sección 2 — Datos del cliente**
-Formulario con los campos definidos en la validación Zod. Validación en cliente antes de enviar.
+**Badge de estado:** Cada estado tiene un color diferente con Tailwind:
+- `PENDING_PAYMENT` → amarillo
+- `PAID` → azul
+- `SHIPPED` → morado
+- `DELIVERED` → verde
+- `CANCELLED` → rojo
 
-**Sección 3 — Envío y total**
-Muestra el costo de envío calculado en el servidor. Se actualiza cuando el usuario completa los datos y hace submit. Nunca calculado en el frontend.
+**Paginación:** Botones anterior y siguiente. Muestra `Página X de Y`. Llama al endpoint con `?page=2`.
 
-**Al hacer submit:**
-- Llama a `POST /api/orders` con los datos del formulario y el carrito
-- El backend retorna `{ publicId, paymentData }`
-- El frontend inicializa el widget de pago con `paymentData`
-- Wompi maneja el resto y redirige a la URL de confirmación
+### Componente nuevo `OrderDetail.jsx`
 
-### `/pedido/confirmacion` — página nueva
+Panel de detalle que se abre al hacer clic en un pedido. Puede ser un modal o un panel lateral, el agente elige lo más consistente con el diseño existente del admin.
 
-Recibe `?id=ORD-1234` como query param. Muestra:
+**Contenido del detalle:**
 
-- Número de pedido en grande
-- Mensaje: *"Guarda este número para consultar tu pedido"*
-- Resumen del pedido
-- Estado actual
-- Botón para compartir por WhatsApp
+Sección 1 — Datos del cliente:
+- Nombre, teléfono, email
+- Dirección completa, ciudad, departamento
 
-Vacía el carrito de Nano Stores al cargar.
+Sección 2 — Items del pedido:
+- Tabla con producto, talla, color, cantidad, precio unitario
+- Subtotal de productos
+- Costo de envío
+- Total final
 
-### `/pedido` — página nueva
+Sección 3 — Cambiar estado:
+- Selector con los estados válidos según la transición actual
+- El agente debe mostrar solo los estados a los que se puede transicionar desde el estado actual, no todos
+- Campo de texto opcional para agregar una nota al cambio de estado
+- Botón confirmar
 
-Formulario de búsqueda manual con dos campos: número de pedido y teléfono. Al buscar llama a `GET /api/orders/:publicId/:phone`. Muestra el detalle del pedido si existe.
+Sección 4 — Historial de estados:
+- Timeline vertical con cada cambio de estado
+- Muestra fecha, estado nuevo y nota si existe
+- Ordenado del más antiguo al más reciente
 
-### `/pedido/tracking` — página nueva
+### `client/src/lib/api.js`
 
-Recibe el token del link mágico como query param. Llama a `GET /api/orders/token/:token`. Si el token expiró muestra mensaje y redirige a `/pedido` para búsqueda manual.
+Agregar tres funciones:
 
-### `api.js` — funciones nuevas
-
-- `createOrder(customerData, cartItems)`
-- `getOrderByToken(token)`
-- `searchOrder(publicId, phone)`
+- `getOrders({ status, search, page })` — construye los query params y llama al endpoint
+- `getOrderDetail(publicId)` — trae el detalle completo
+- `updateOrderStatus(orderId, status, note)` — llama al PATCH
 
 ---
 
-## Secuencia completa del flujo
+## Consideraciones para el agente
 
-```
-1. Cliente hace submit en /checkout
-2. Frontend llama POST /api/orders
-3. Backend valida stock de cada variante
-4. Backend calcula subtotal + envío
-5. Backend crea orden en PENDING_PAYMENT (transacción)
-6. Backend genera magic token
-7. Backend llama a payment.factory → wompi.adapter.createSession()
-8. Backend retorna { publicId, paymentData } al frontend
-9. Frontend inicializa widget Wompi con paymentData
-10. Cliente completa el pago en el widget
-11. Wompi llama POST /api/webhooks/payment
-12. Backend verifica firma del webhook
-13. Backend llama a payment.factory → wompi.adapter.parseWebhookEvent()
-14. Si pago exitoso:
-    → Actualiza orden a PAID
-    → Decrementa stock en transacción
-    → Llama a email.service.sendOrderConfirmation()
-    → Registra en order_status_history
-15. Wompi redirige cliente a /pedido/confirmacion?id=ORD-1234
-```
+**El debounce en la búsqueda es obligatorio.** Sin él cada tecla dispara un request al backend.
 
----
+**Las transiciones de estado en el frontend deben coincidir con las del backend.** El selector solo muestra opciones válidas pero el backend igual valida, nunca confiar solo en el frontend.
 
-## Consideraciones críticas para el agente
+**El historial de estados es de solo lectura.** No se puede editar ni eliminar un estado ya registrado.
 
-**El stock se descuenta en el webhook, no al crear la orden.** Esto evita bloquear stock de pagos que nunca se completan.
-
-**El webhook debe verificar la firma siempre.** Sin esta verificación cualquiera puede llamar al endpoint y marcar órdenes como pagadas.
-
-**El email nunca interrumpe el flujo.** Si `sendOrderConfirmation` falla, se registra en el logger y el flujo continúa normalmente.
-
-**`generatePublicId` debe verificar unicidad en BD.** En caso de colisión regenera hasta encontrar uno disponible, máximo 3 intentos.
-
-**Las transacciones son obligatorias** en dos puntos: crear orden + items, y decrementar stock de todos los items del pedido.
+**La paginación se resetea a página 1** cada vez que cambia el filtro de estado o el texto de búsqueda.
 
 ---
 
@@ -260,345 +171,11 @@ Recibe el token del link mágico como query param. Llama a `GET /api/orders/toke
 
 | Archivo | Acción |
 |---|---|
-| `init.sql` | Migración con ALTER TABLE y nueva tabla |
-| `payments/payment.interface.js` | Nuevo |
-| `payments/wompi.adapter.js` | Nuevo |
-| `payments/payment.factory.js` | Nuevo |
-| `repositories/order.repository.js` | Nuevo |
-| `repositories/stock.repository.js` | Nuevo |
-| `services/order.service.js` | Nuevo |
-| `services/email.service.js` | Nuevo |
-| `controllers/order.controller.js` | Nuevo |
-| `public.routes.js` | Agregar rutas de órdenes |
-| `webhooks.routes.js` | Agregar ruta de webhook |
-| `client/src/pages/checkout.astro` | Nuevo |
-| `client/src/pages/pedido/confirmacion.astro` | Nuevo |
-| `client/src/pages/pedido/index.astro` | Nuevo |
-| `client/src/pages/pedido/tracking.astro` | Nuevo |
-| `client/src/lib/api.js` | Agregar funciones de órdenes |
-
-
-
-
-
-
-
-
-
-
-Claude pendiente!!
-
-
-
-
-
-
- Plan — Flujo de Pedido                                                    
-
- Contexto
-
- El proyecto GeekShop necesita un flujo de checkout completo: desde que el cliente hace click en "Finalizar Compra" hasta la confirmación del pago y el seguimiento del pedido. Se usa Wompi como pasarela de pagos con un patrón Factory para permitir
- cambiar de proveedor fácilmente. El backend es Express + PostgreSQL, el frontend Astro (static) + React islands.
-
- ---
- Fase 1: Base de datos y configuración
-
- 1.1 Migración server/database/migrations/004_orders_update.sql
-
- - ALTER TABLE orders: agregar email, city, department, shipping_cost, payment_session_id, magic_token, magic_token_expires_at
- - CREATE TABLE order_status_history (id, order_id, status, note, created_at)
- - Crear índices para magic_token y order_status_history.order_id
-
- 1.2 Modificar server/src/config/env.js
-
- Agregar: paymentProvider, wompiPublicKey, wompiPrivateKey, wompiEventsSecret, shippingCost, freeShippingThreshold, resendApiKey, emailFrom, frontendUrl
-
- 1.3 Actualizar server/src/.env.example
-
- Agregar las variables correspondientes
-
- ---
- Fase 2: Módulo de pagos (Factory Pattern)
-
- 2.1 Crear server/src/payments/payment.interface.js
-
- - Función validateAdapter(adapter) que verifica que tenga createSession, verifyWebhook, parseWebhookEvent
-
- 2.2 Crear server/src/payments/wompi.adapter.js
-
- - createSession(order) → devuelve datos para el widget Wompi (publicKey, amountInCents, reference, redirectUrl, signature integrity)
- - verifyWebhook(payload, signature) → HMAC-SHA256 con crypto.timingSafeEqual
- - parseWebhookEvent(payload) → normaliza a { reference, status, paymentSessionId }
-
- 2.3 Crear server/src/payments/payment.factory.js
-
- - Lee env.paymentProvider, retorna el adaptador correspondiente. Cachea el resultado.
-
- ---
- Fase 3: Repositorios
-
- 3.1 Crear server/src/repositories/stock.repository.js
-
- - decrementStock(variantId, quantity, client) → UPDATE variants SET stock = stock - $2 WHERE id = $1 AND stock >= $2 RETURNING id, stock
-
- 3.2 Crear server/src/repositories/order.repository.js
-
- Siguiendo el patrón de product.repository.js (import pool, export async functions, transacciones con pool.connect()):
- - create(orderData) → transacción: INSERT orders + INSERT order_items + INSERT order_status_history
- - findByPublicId(publicId) → JOIN con order_items, variants, products
- - findByMagicToken(token) → con verificación de expiración
- - findByPhoneAndPublicId(phone, publicId)
- - updateStatus(orderId, status, note) → UPDATE orders + INSERT order_status_history
- - updatePaymentSession(orderId, paymentSessionId)
- - findById(orderId)
- - findItemsByOrderId(orderId)
-
- ---
- Fase 4: Servicios
-
- 4.1 Crear server/src/services/order.service.js
-
- Siguiendo el patrón de product.service.js:
- - calculateShipping(subtotal) → lee de env
- - generatePublicId() → ORD-XXXX, verifica unicidad, max 3 intentos
- - generateMagicToken() → crypto.randomBytes(32), expira en 30 días
- - createOrder(customerData, cartItems) → validar stock (lectura), calcular subtotal/envío, crear orden, crear sesión de pago, retornar { publicId, paymentData }
- - confirmPayment(webhookPayload, signature) → verificar webhook, actualizar estado, decrementar stock en transacción, enviar email (fire-and-forget)
- - getOrderByToken(token) → wrapper con error ORDER_NOT_FOUND
- - getOrderByPhoneAndId(phone, publicId) → wrapper con error ORDER_NOT_FOUND
-
- 4.2 Crear server/src/services/email.service.js
-
- - Instalar resend npm package
- - sendOrderConfirmation(order, magicToken) → nunca lanza excepción, solo logea errores
- - Si RESEND_API_KEY no está configurada, skip silencioso
-
- ---
- Fase 5: Controller y rutas
-
- 5.1 Crear server/src/controllers/order.controller.js
-
- Siguiendo el patrón de admin.product.controller.js (Zod + try/catch + error codes):
- - Schema Zod: customer_name, customer_email, customer_phone, customer_address, city, department, items[]
- - createOrder(req, res) → 201
- - getOrderByToken(req, res) → por params.token
- - getOrderBySearch(req, res) → por params.publicId + params.phone
- - handleWebhook(req, res) → leer signature del header, siempre responder 200 a webhooks
-
- 5.2 Modificar server/src/routes/public.routes.js
-
- Agregar: POST /orders, GET /orders/token/:token, GET /orders/:publicId/:phone
-
- 5.3 Modificar server/src/routes/webhooks.routes.js
-
- Agregar: POST /payment → handleWebhook
-
- 5.4 Modificar server/src/app.js
-
- - Importar webhookRoutes
- - Registrar /api/webhooks con express.json({ verify }) para raw body ANTES del express.json() general
- - Montar app.use('/api/webhooks', ...) antes de las demás rutas
-
- ---
- Fase 6: Frontend — Store y API
-
- 6.1 Modificar client/src/lib/cartStore.js
-
- - Agregar clearCart = () => cartItems.set([])
-
- 6.2 Modificar client/src/lib/api.js
-
- Agregar funciones siguiendo el patrón existente (fetch + error check):
- - createOrder(orderData) → POST /api/orders
- - getOrderByToken(token) → GET /api/orders/token/:token
- - searchOrder(publicId, phone) → GET /api/orders/:publicId/:phone
-
- 6.3 Modificar client/src/components/shop/CartFlyout.jsx
-
- - Cambiar el <button> de "Finalizar Compra" por un <a href="/checkout"> con onClick={closeCart}
-
- ---
- Fase 7: Frontend — Páginas
-
- Todas las páginas de checkout usan client:only="react" (el sitio es static output, los datos se cargan client-side).
-
- 7.1 Crear client/src/pages/checkout.astro + client/src/components/shop/CheckoutForm.jsx
-
- - Formulario: nombre, email, teléfono, dirección, ciudad, departamento (dropdown con los 32 departamentos de Colombia)
- - Resumen del carrito (readonly, desde nanostores)
- - Al submit: POST /api/orders → recibe paymentData → inicializa widget Wompi
- - El cart item .id ES el variant_id (confirmado en código)
-
- 7.2 Crear client/src/pages/pedido/confirmacion.astro + client/src/components/shop/OrderConfirmation.jsx
-
- - Lee ?id=ORD-XXXX de window.location.search
- - Llama clearCart() al montar
- - Muestra número de pedido, mensaje de guardar, botón WhatsApp
-
- 7.3 Crear client/src/pages/pedido/index.astro + client/src/components/shop/OrderSearch.jsx
-
- - Formulario: número de pedido + teléfono → GET /api/orders/:publicId/:phone
- - Muestra detalle del pedido si existe
-
- 7.4 Crear client/src/pages/pedido/tracking.astro + client/src/components/shop/OrderTracking.jsx
-
- - Lee ?token=... de window.location.search
- - GET /api/orders/token/:token
- - Si expirado, redirige a /pedido
-
- ---
- Resumen de archivos (24 archivos)
-
- ┌─────┬──────────────────────────────────────────────────┬───────────┐
- │  #  │                     Archivo                      │  Acción   │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 1   │ server/database/migrations/004_orders_update.sql │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 2   │ server/src/config/env.js                         │ Modificar │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 3   │ server/src/.env.example                          │ Modificar │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 4   │ server/src/payments/payment.interface.js         │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 5   │ server/src/payments/wompi.adapter.js             │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 6   │ server/src/payments/payment.factory.js           │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 7   │ server/src/repositories/stock.repository.js      │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 8   │ server/src/repositories/order.repository.js      │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 9   │ server/src/services/email.service.js             │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 10  │ server/src/services/order.service.js             │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 11  │ server/src/controllers/order.controller.js       │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 12  │ server/src/routes/public.routes.js               │ Modificar │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 13  │ server/src/routes/webhooks.routes.js             │ Modificar │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 14  │ server/src/app.js                                │ Modificar │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 15  │ client/src/lib/cartStore.js                      │ Modificar │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 16  │ client/src/lib/api.js                            │ Modificar │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 17  │ client/src/components/shop/CartFlyout.jsx        │ Modificar │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 18  │ client/src/pages/checkout.astro                  │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 19  │ client/src/components/shop/CheckoutForm.jsx      │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 20  │ client/src/pages/pedido/confirmacion.astro       │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 21  │ client/src/components/shop/OrderConfirmation.jsx │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 22  │ client/src/pages/pedido/index.astro              │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 23  │ client/src/components/shop/OrderSearch.jsx       │ Crear     │
- ├─────┼──────────────────────────────────────────────────┼───────────┤
- │ 24  │ client/src/pages/pedido/tracking.astro           │ Crear     │
- └─────┴──────────────────────────────────────────────────┴───────────┘
-
- Dependencia npm a instalar
-
- - resend en server/
-
- Verificación
-
- 1. Ejecutar migración SQL en la BD
- 2. npm install resend en server/
- 3. Arrancar el servidor y verificar que las rutas responden
- 4. Verificar que el frontend compila sin errores (npm run build en client/)
- 5. Flujo manual: agregar productos al carrito → checkout → crear orden → verificar en BD
-╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
-
- Claude has written up a plan and is ready to execute. Would you like to proceed?
-
- ❯ 1. Yes, clear context and auto-accept edits (shift+tab)
-   2. Yes, auto-accept edits
-   3. Yes, manually approve edits
-   4. Type here to tell Claude what to change
-
-
-
-
-
-● All modules parse and import correctly.                         
-                                           
-● All 24 files have been implemented. Here's a summary of what was done:                                                                                                                                                                                      
-                                                
-  Backend (server/)                                                                                                                                                                                                                                           
-                                                                                                                                                                                                                                                              
-  ┌───────────────────────────────────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐                                                                                 
-  │                   File                    │                                                           Action                                                            │                                                                                 
-  ├───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ database/migrations/004_orders_update.sql │ Created — adds email, city, department, shipping_cost, payment_session_id, magic_token columns + order_status_history table │                                                                                 
-  ├───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                                                                                 
-  │ src/config/env.js                         │ Modified — added payment, shipping, email, and frontend URL config                                                          │                                                                                 
-  ├───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                                                                                 
-  │ src/.env.example                          │ Created — all env variables documented                                                                                      │                                                                                 
-  ├───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ src/payments/payment.interface.js         │ Created — validates adapter methods                                                                                         │                                                                                 
-  ├───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                                                                                 
-  │ src/payments/wompi.adapter.js             │ Created — createSession, verifyWebhook (HMAC-SHA256 + timingSafeEqual), parseWebhookEvent                                   │                                                                                 
-  ├───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                                                                                 
-  │ src/payments/payment.factory.js           │ Created — reads provider from env, caches adapter                                                                           │                                                                                 
-  ├───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                                                                                 
-  │ src/repositories/stock.repository.js      │ Created — decrementStock with atomic check                                                                                  │                                                                                 
-  ├───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                                                                                 
-  │ src/repositories/order.repository.js      │ Created — full CRUD with transactions                                                                                       │                                                                                 
-  ├───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤                                                                                 
-  │ src/services/email.service.js             │ Created — Resend integration, silent fail                                                                                   │
-  ├───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ src/services/order.service.js             │ Created — createOrder, confirmPayment, shipping calc, magic tokens                                                          │
-  ├───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ src/controllers/order.controller.js       │ Created — Zod validation, 4 endpoints                                                                                       │
-  ├───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ src/routes/public.routes.js               │ Modified — added POST /orders, GET /orders/token/:token, GET /orders/:publicId/:phone                                       │
-  ├───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ src/routes/webhooks.routes.js             │ Created — POST /payment                                                                                                     │
-  ├───────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-  │ src/app.js                                │ Modified — mounted webhook routes before general JSON parser                                                                │
-  └───────────────────────────────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-
-  Frontend (client/)
-
-  ┌───────────────────────────────────────────┬──────────────────────────────────────────────────────────────┐
-  │                   File                    │                            Action                            │
-  ├───────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
-  │ src/lib/cartStore.js                      │ Modified — added clearCart()                                 │
-  ├───────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
-  │ src/lib/api.js                            │ Modified — added createOrder, getOrderByToken, searchOrder   │
-  ├───────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
-  │ src/components/shop/CartFlyout.jsx        │ Modified — button → <a href="/checkout">                     │
-  ├───────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
-  │ src/pages/checkout.astro                  │ Created                                                      │
-  ├───────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
-  │ src/components/shop/CheckoutForm.jsx      │ Created — form with 32 departments, Wompi widget integration │
-  ├───────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
-  │ src/pages/pedido/confirmacion.astro       │ Created                                                      │
-  ├───────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
-  │ src/components/shop/OrderConfirmation.jsx │ Created — clears cart, shows order ID, WhatsApp button       │
-  ├───────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
-  │ src/pages/pedido/index.astro              │ Created                                                      │
-  ├───────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
-  │ src/components/shop/OrderSearch.jsx       │ Created — search by publicId + phone                         │
-  ├───────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
-  │ src/pages/pedido/tracking.astro           │ Created                                                      │
-  ├───────────────────────────────────────────┼──────────────────────────────────────────────────────────────┤
-  │ src/components/shop/OrderTracking.jsx     │ Created — magic token tracking with progress steps           │
-  └───────────────────────────────────────────┴──────────────────────────────────────────────────────────────┘
-
-  Dependency
-
-  - resend installed in server/
-
-  Next steps
-
-  1. Run the migration 004_orders_update.sql against your database
-  2. Set WOMPI_PUBLIC_KEY, WOMPI_PRIVATE_KEY, WOMPI_EVENTS_SECRET in your .env
-  3. Start the server and test the full flow
-
-
+| `repositories/order.repository.js` | Agregar 3 funciones |
+| `services/order.service.js` | Agregar 3 funciones |
+| `controllers/admin.order.controller.js` | Nuevo |
+| `routes/admin.routes.js` | Agregar 3 rutas |
+| `client/src/lib/api.js` | Agregar 3 funciones |
+| `AdminDashboard.jsx` | Agregar vista Pedidos a navegación |
+| `admin/OrdersView.jsx` | Nuevo |
+| `admin/OrderDetail.jsx` | Nuevo |

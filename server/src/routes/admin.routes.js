@@ -10,6 +10,7 @@ import logger from '../utils/logger.js';
 import { uploadImage as multerUpload, uploadImages } from '../middlewares/upload.middleware.js';
 import * as imageController from '../controllers/admin.image.controller.js';
 import * as categoryController from '../controllers/admin.category.controller.js';
+import * as adminOrderController from '../controllers/admin.order.controller.js';
 
 const router = Router();
 
@@ -109,5 +110,10 @@ router.delete('/categories/:id', requireAdmin, categoryController.deactivateCate
 // ── Product Categories ──
 router.get('/products/:id/categories', requireAdmin, categoryController.getProductCategories);
 router.patch('/products/:id/categories', requireAdmin, categoryController.updateProductCategories);
+
+// ── Orders ──
+router.get('/orders', requireAdmin, adminOrderController.getOrders);
+router.get('/orders/:publicId', requireAdmin, adminOrderController.getOrderDetail);
+router.patch('/orders/:orderId/status', requireAdmin, adminOrderController.updateStatus);
 
 export default router;

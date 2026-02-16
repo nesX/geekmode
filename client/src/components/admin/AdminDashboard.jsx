@@ -3,6 +3,7 @@ import { useStore } from '@nanostores/react';
 import { authUser, logout } from '../../lib/authStore';
 import ProductsTable from './ProductsTable.jsx';
 import CategoriesTable from './CategoriesTable.jsx';
+import OrdersView from './OrdersView.jsx';
 import {
   LayoutDashboard,
   Package,
@@ -201,12 +202,7 @@ export default function AdminDashboard() {
           {activeView === 'dashboard' && <DashboardContent user={user} />}
           {activeView === 'products' && <ProductsTable />}
           {activeView === 'categories' && <CategoriesTable />}
-          {activeView === 'orders' && (
-            <div className="flex flex-col items-center justify-center py-24 text-text-muted">
-              <ShoppingCart className="w-16 h-16 mb-4 opacity-50" />
-              <p>Proximamente</p>
-            </div>
-          )}
+          {activeView === 'orders' && <OrdersView />}
           {activeView === 'customers' && (
             <div className="flex flex-col items-center justify-center py-24 text-text-muted">
               <Users className="w-16 h-16 mb-4 opacity-50" />
