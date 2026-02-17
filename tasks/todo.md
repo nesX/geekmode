@@ -1,181 +1,101 @@
-
-
-# Instrucciones para el Agente — Gestión de Pedidos en el Admin
+# Instrucciones para el Agente — Selectores de Departamento y Municipio
 
 ## Contexto
-El admin gestiona los pedidos manualmente. La pasarela de pago actualiza el estado a `PAID` vía webhook automáticamente. El admin gestiona los estados posteriores: `SHIPPED`, `DELIVERED`, `CANCELLED`. Todo dentro del `AdminDashboard.jsx` existente como una vista nueva.
+El archivo JSON con los datos de Colombia está en `client/src/data/municipios-colombia.json`. El checkout debe mostrar dos selectores: primero departamento, luego municipio. Al seleccionar un departamento se filtran solo los municipios de ese departamento. Los valores se envían al backend como strings simples.
 
 ---
 
-## Backend
+## Frontend — Componente de Checkout
 
-### `repositories/order.repository.js`
+### Importar el JSON
 
-Agregar las siguientes funciones al repositorio existente:
+En el archivo del componente de checkout (el que contiene el formulario de datos del cliente):
 
-**`findAll({ status, search, page, limit })`** — Lista paginada de órdenes. Los parámetros son opcionales:
-- `status` filtra por estado exacto
-- `search` busca en `public_id` y `customer_phone` con `ILIKE`
-- `page` y `limit` para paginación, default `page=1` y `limit=20`
-- Ordenar por `created_at DESC`
-- Retornar también el total de registros para calcular páginas en el frontend
-
-Para cada orden traer: `id`, `public_id`, `customer_name`, `customer_phone`, `total_amount`, `shipping_cost`, `status`, `payment_method`, `created_at`. No traer los items en este listado, solo la cabecera.
-
-**`findByPublicIdAdmin(publicId)`** — Detalle completo de una orden para el admin. Traer todos los campos de `orders` más los items con JOIN a `variants` y `products` para mostrar nombre del producto, talla y color. Incluir el historial de estados desde `order_status_history` ordenado por `created_at ASC`.
-
-**`updateStatus(orderId, status, note)`** — Actualiza el estado en `orders` e inserta un registro en `order_status_history` con el nuevo estado y la nota opcional. Hacerlo en una transacción.
-
-### `services/order.service.js`
-
-Agregar al service existente:
-
-**`getOrders({ status, search, page })`** — Llama al repositorio y retorna los datos paginados.
-
-**`getOrderDetail(publicId)`** — Llama a `findByPublicIdAdmin`, lanza `ORDER_NOT_FOUND` si no existe.
-
-**`updateOrderStatus(orderId, newStatus, note)`** — Valida que la transición de estado sea válida antes de actualizar. Las transiciones permitidas son:
-
-```
-PENDING_PAYMENT → PAID → SHIPPED → DELIVERED
-cualquier estado → CANCELLED
+```javascript
+import colombiaData from '../data/municipios-colombia.json'
 ```
 
-Si la transición no es válida lanza `INVALID_STATUS_TRANSITION`. Esto evita que el admin marque un pedido como `SHIPPED` sin haberlo marcado como `PAID` primero.
+### Estado para los selectores
 
-### `controllers/admin.order.controller.js`
+El componente necesita dos estados adicionales:
 
-Archivo nuevo con tres handlers:
+- `selectedDepartment` — guarda el ID del departamento seleccionado
+- `selectedMunicipality` — guarda el nombre del municipio seleccionado
 
-**`getOrders`** — Extrae `status`, `search` y `page` de `req.query`, llama al service, responde con `{ orders, total, page, totalPages }`.
+### Lógica de filtrado
 
-**`getOrderDetail`** — Extrae `publicId` de `req.params`, llama al service, responde con el detalle completo o `404` si no existe.
+Cuando el usuario selecciona un departamento, filtrar los municipios así:
 
-**`updateStatus`** — Valida con Zod que `status` sea uno de los valores permitidos y que `note` sea string opcional. Llama al service, responde con la orden actualizada o el error de transición inválida.
-
-### Validación Zod
-
-```
-UpdateStatusSchema:
-  status: enum ['PAID', 'SHIPPED', 'DELIVERED', 'CANCELLED']
-  note: string opcional, max 500 caracteres
+```javascript
+const municipios = selectedDepartment 
+  ? colombiaData.departments.find(d => d.id === selectedDepartment)?.municipalities || []
+  : []
 ```
 
-### `routes/admin.routes.js`
+El selector de municipios solo se habilita cuando hay un departamento seleccionado. Si no hay departamento seleccionado, el selector de municipios está deshabilitado y muestra el placeholder "Primero selecciona un departamento".
 
-Agregar al router admin existente:
+### Estructura de los selectores
 
+**Select de departamento:**
+- Ordenar alfabéticamente por `name` (ya viene ordenado del JSON)
+- Placeholder: "Selecciona tu departamento"
+- Al cambiar, resetear el municipio seleccionado a vacío
+
+**Select de municipio:**
+- Mostrar solo los municipios del departamento seleccionado
+- Ordenar alfabéticamente por `name` (ya viene ordenado del JSON)
+- Placeholder: "Selecciona tu municipio"
+- Deshabilitado si no hay departamento seleccionado
+
+### Lo que se envía al backend
+
+Al hacer submit del formulario, construir los campos así:
+
+```javascript
+{
+  department: colombiaData.departments.find(d => d.id === selectedDepartment)?.name,
+  city: selectedMunicipality
+}
 ```
-GET   /api/admin/orders                  → getOrders
-GET   /api/admin/orders/:publicId        → getOrderDetail
-PATCH /api/admin/orders/:orderId/status  → updateStatus
-```
 
-Todas protegidas con el middleware `requireAdmin` existente.
+Es decir, se envían los **nombres** como strings, no los IDs. Esto es importante porque la tabla `orders` guarda texto, no foreign keys.
+
+### Validación del formulario
+
+Antes de permitir submit, validar que:
+- `selectedDepartment` no sea null
+- `selectedMunicipality` no sea vacío
+
+Mostrar mensaje de error si falta alguno de los dos.
 
 ---
 
-## Frontend
+## Modificación en `order.repository.js`
 
-### Vista nueva en `AdminDashboard.jsx`
-
-Agregar "Pedidos" a la navegación existente del dashboard. Al seleccionarla renderiza el componente `OrdersView.jsx`.
-
-### Componente nuevo `OrdersView.jsx`
-
-Vista principal de pedidos con dos sub-componentes: la tabla de listado y el panel de detalle.
-
-**Estructura de la vista:**
-
-```
-┌─────────────────────────────────────────┐
-│ Filtros: [Todos][Pendiente][Pagado]      │
-│          [Enviado][Entregado][Cancelado] │
-│ Búsqueda: [ número o teléfono...      ] │
-├─────────────────────────────────────────┤
-│ Tabla de pedidos                        │
-│                                         │
-│ #ORD  │ Cliente │ Total │ Estado │ Fecha│
-│ ───── │ ─────── │ ───── │ ────── │ ────│
-│ 1234  │ Juan    │ 55000 │  PAID  │ hoy │
-├─────────────────────────────────────────┤
-│ Paginación: < 1 2 3 ... >               │
-└─────────────────────────────────────────┘
-```
-
-Al hacer clic en una fila abre el panel de detalle.
-
-**Comportamiento de los filtros:** Son botones de selección única. Al hacer clic llaman a `GET /api/admin/orders?status=PAID`. El filtro `Todos` no envía el parámetro `status`.
-
-**Comportamiento de la búsqueda:** Input con debounce de 400ms. Llama a `GET /api/admin/orders?search=3001234567` mientras el usuario escribe. No requiere presionar Enter.
-
-**Badge de estado:** Cada estado tiene un color diferente con Tailwind:
-- `PENDING_PAYMENT` → amarillo
-- `PAID` → azul
-- `SHIPPED` → morado
-- `DELIVERED` → verde
-- `CANCELLED` → rojo
-
-**Paginación:** Botones anterior y siguiente. Muestra `Página X de Y`. Llama al endpoint con `?page=2`.
-
-### Componente nuevo `OrderDetail.jsx`
-
-Panel de detalle que se abre al hacer clic en un pedido. Puede ser un modal o un panel lateral, el agente elige lo más consistente con el diseño existente del admin.
-
-**Contenido del detalle:**
-
-Sección 1 — Datos del cliente:
-- Nombre, teléfono, email
-- Dirección completa, ciudad, departamento
-
-Sección 2 — Items del pedido:
-- Tabla con producto, talla, color, cantidad, precio unitario
-- Subtotal de productos
-- Costo de envío
-- Total final
-
-Sección 3 — Cambiar estado:
-- Selector con los estados válidos según la transición actual
-- El agente debe mostrar solo los estados a los que se puede transicionar desde el estado actual, no todos
-- Campo de texto opcional para agregar una nota al cambio de estado
-- Botón confirmar
-
-Sección 4 — Historial de estados:
-- Timeline vertical con cada cambio de estado
-- Muestra fecha, estado nuevo y nota si existe
-- Ordenado del más antiguo al más reciente
-
-### `client/src/lib/api.js`
-
-Agregar tres funciones:
-
-- `getOrders({ status, search, page })` — construye los query params y llama al endpoint
-- `getOrderDetail(publicId)` — trae el detalle completo
-- `updateOrderStatus(orderId, status, note)` — llama al PATCH
+La función `create` que ya existe debe recibir `department` y `city` como strings en el objeto `orderData` y guardarlos tal cual en las columnas correspondientes de la tabla `orders`.
 
 ---
 
-## Consideraciones para el agente
+## Consideración importante
 
-**El debounce en la búsqueda es obligatorio.** Sin él cada tecla dispara un request al backend.
+El campo `customer_address` sigue siendo un input de texto libre donde el usuario escribe su dirección completa (calle, número, barrio). Los selectores de departamento y municipio son campos separados adicionales.
 
-**Las transiciones de estado en el frontend deben coincidir con las del backend.** El selector solo muestra opciones válidas pero el backend igual valida, nunca confiar solo en el frontend.
+El orden visual recomendado en el formulario es:
 
-**El historial de estados es de solo lectura.** No se puede editar ni eliminar un estado ya registrado.
-
-**La paginación se resetea a página 1** cada vez que cambia el filtro de estado o el texto de búsqueda.
+```
+Nombre completo
+Teléfono
+Email
+Dirección (calle, número, barrio)  ← input texto libre
+Departamento                       ← select
+Municipio                          ← select filtrado
+```
 
 ---
 
-## Resumen de archivos
+## Resumen
 
 | Archivo | Acción |
 |---|---|
-| `repositories/order.repository.js` | Agregar 3 funciones |
-| `services/order.service.js` | Agregar 3 funciones |
-| `controllers/admin.order.controller.js` | Nuevo |
-| `routes/admin.routes.js` | Agregar 3 rutas |
-| `client/src/lib/api.js` | Agregar 3 funciones |
-| `AdminDashboard.jsx` | Agregar vista Pedidos a navegación |
-| `admin/OrdersView.jsx` | Nuevo |
-| `admin/OrderDetail.jsx` | Nuevo |
+| Componente de checkout | Importar JSON, agregar dos estados, implementar selectores con filtrado |
+| `order.repository.js` | Sin cambios (ya recibe department y city como strings) |

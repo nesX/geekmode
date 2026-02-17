@@ -1,17 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStore } from '@nanostores/react';
 import { cartItems, cartTotal } from '../../lib/cartStore';
 import { createOrder } from '../../lib/api';
 import { formatPrice } from '../../utils/format';
-
-const DEPARTMENTS = [
-  'Amazonas', 'Antioquia', 'Arauca', 'Atlántico', 'Bogotá D.C.', 'Bolívar',
-  'Boyacá', 'Caldas', 'Caquetá', 'Casanare', 'Cauca', 'Cesar', 'Chocó',
-  'Córdoba', 'Cundinamarca', 'Guainía', 'Guaviare', 'Huila', 'La Guajira',
-  'Magdalena', 'Meta', 'Nariño', 'Norte de Santander', 'Putumayo', 'Quindío',
-  'Risaralda', 'San Andrés y Providencia', 'Santander', 'Sucre', 'Tolima',
-  'Valle del Cauca', 'Vaupés', 'Vichada',
-];
+import colombiaData from '../../data/municipios-colombia.json';
 
 export default function CheckoutForm() {
   const $cartItems = useStore(cartItems);
@@ -27,8 +19,24 @@ export default function CheckoutForm() {
     department: '',
   });
 
+  const departments = useMemo(
+    () => [...colombiaData.departments].sort((a, b) => a.name.localeCompare(b.name)),
+    []
+  );
+
+  const municipalities = useMemo(() => {
+    if (!form.department) return [];
+    const dep = colombiaData.departments.find((d) => d.name === form.department);
+    return dep ? [...dep.municipalities].sort((a, b) => a.name.localeCompare(b.name)) : [];
+  }, [form.department]);
+
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === 'department') {
+      setForm({ ...form, department: value, city: '' });
+    } else {
+      setForm({ ...form, [name]: value });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -149,17 +157,6 @@ export default function CheckoutForm() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-text-muted mb-1">Ciudad</label>
-              <input
-                type="text"
-                name="city"
-                value={form.city}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 rounded-lg bg-background border border-white/10 text-text-main focus:outline-none focus:border-primary"
-              />
-            </div>
-            <div>
               <label className="block text-sm font-medium text-text-muted mb-1">Departamento</label>
               <select
                 name="department"
@@ -169,8 +166,24 @@ export default function CheckoutForm() {
                 className="w-full px-4 py-3 rounded-lg bg-background border border-white/10 text-text-main focus:outline-none focus:border-primary"
               >
                 <option value="">Seleccionar...</option>
-                {DEPARTMENTS.map((dep) => (
-                  <option key={dep} value={dep}>{dep}</option>
+                {departments.map((dep) => (
+                  <option key={dep.id} value={dep.name}>{dep.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-text-muted mb-1">Municipio</label>
+              <select
+                name="city"
+                value={form.city}
+                onChange={handleChange}
+                required
+                disabled={!form.department}
+                className="w-full px-4 py-3 rounded-lg bg-background border border-white/10 text-text-main focus:outline-none focus:border-primary disabled:opacity-50"
+              >
+                <option value="">Seleccionar...</option>
+                {municipalities.map((mun) => (
+                  <option key={mun.id} value={mun.name}>{mun.name}</option>
                 ))}
               </select>
             </div>
