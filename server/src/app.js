@@ -8,6 +8,7 @@ import { authMiddleware } from './middlewares/auth.middleware.js';
 import adminRoutes from './routes/admin.routes.js';
 import publicRoutes from './routes/public.routes.js';
 import webhookRoutes from './routes/webhooks.routes.js';
+import { verifyEmailConfig } from './services/email/email.factory.js';
 
 const app = express();
 
@@ -65,11 +66,14 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(env.port, () => {
+app.listen(env.port, async () => {
   console.log(`Server running on http://localhost:${env.port}`);
   console.log(`Environment: ${env.nodeEnv}`);
   console.log(`Client origin: ${env.clientOrigin}`);
   console.log(`Authorized admins: ${env.adminEmails.length} email(s)`);
+
+  // Verificar configuración de email al inicio
+  await verifyEmailConfig();
 });
 
 export default app;

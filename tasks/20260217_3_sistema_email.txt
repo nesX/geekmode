@@ -1,0 +1,669 @@
+# Instrucciones para el Agente — Sistema de Email Abstracto
+
+## Contexto
+Sistema de email completamente abstracto que permite cambiar de proveedor sin modificar el código de la aplicación. Soporta SMTP local para desarrollo y está preparado para migrar a servicios cloud (Resend, SendGrid) en producción. Los templates son archivos separados que generan HTML y texto plano.
+
+---
+
+## Variables de entorno
+
+Agregar a `server/.env.example`:
+
+```env
+# Email configuration
+EMAIL_PROVIDER=smtp
+EMAIL_FROM=GeekShop <noreply@geekmode.co>
+
+# SMTP (desarrollo local)
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_USER=
+SMTP_PASS=
+SMTP_SECURE=false
+
+# Resend (producción - futuro)
+RESEND_API_KEY=
+
+# SendGrid (alternativa - futuro)
+SENDGRID_API_KEY=
+```
+
+Exponer estas variables en `server/src/config/env.js` junto a las existentes.
+
+---
+
+## Estructura de carpetas
+
+Crear la siguiente estructura en el servidor:
+
+```
+server/src/
+└── services/
+    └── email/
+        ├── email.interface.js
+        ├── smtp.adapter.js
+        ├── console.adapter.js
+        ├── email.factory.js
+        ├── email.service.js
+        └── templates/
+            ├── order-confirmation.js
+            └── magic-link.js
+```
+
+---
+
+## Contrato del adapter
+
+### `server/src/services/email/email.interface.js`
+
+Archivo que documenta el contrato que todos los adapters deben cumplir. No es código ejecutable, solo documentación en JSDoc:
+
+```javascript
+/**
+ * Interface que todos los email adapters deben implementar
+ */
+
+/**
+ * @typedef {Object} EmailOptions
+ * @property {string} to - Email del destinatario
+ * @property {string} subject - Asunto del email
+ * @property {string} html - Contenido HTML
+ * @property {string} text - Contenido en texto plano
+ */
+
+/**
+ * @typedef {Object} SendResult
+ * @property {boolean} success - Si el envío fue exitoso
+ * @property {string} messageId - ID del mensaje enviado
+ * @property {string} [error] - Mensaje de error si falló
+ */
+
+/**
+ * Todos los adapters deben implementar:
+ * 
+ * async send(options: EmailOptions): Promise<SendResult>
+ * async verify(): Promise<boolean>
+ */
+```
+
+---
+
+## Adapters
+
+### `server/src/services/email/smtp.adapter.js`
+
+Implementación usando `nodemailer` con SMTP:
+
+```javascript
+import nodemailer from 'nodemailer'
+import { env } from '../../config/env.js'
+import { logger } from '../../utils/logger.js'
+
+class SmtpAdapter {
+  constructor() {
+    this.transporter = nodemailer.createTransport({
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      secure: env.SMTP_SECURE === 'true',
+      auth: env.SMTP_USER ? {
+        user: env.SMTP_USER,
+        pass: env.SMTP_PASS
+      } : undefined
+    })
+  }
+
+  async verify() {
+    try {
+      await this.transporter.verify()
+      logger.info('email.smtp', 'SMTP connection verified')
+      return true
+    } catch (err) {
+      logger.error('email.smtp', `SMTP verification failed: ${err.message}`)
+      return false
+    }
+  }
+
+  async send({ to, subject, html, text }) {
+    try {
+      const result = await this.transporter.sendMail({
+        from: env.EMAIL_FROM,
+        to,
+        subject,
+        html,
+        text
+      })
+      
+      logger.info('email.smtp', `Email sent to ${to}: ${subject}`)
+      
+      return {
+        success: true,
+        messageId: result.messageId
+      }
+    } catch (err) {
+      logger.error('email.smtp', `Failed to send email: ${err.message}`)
+      return {
+        success: false,
+        error: err.message
+      }
+    }
+  }
+}
+
+export default SmtpAdapter
+```
+
+### `server/src/services/email/console.adapter.js`
+
+Adapter para testing que solo imprime en consola sin enviar realmente:
+
+```javascript
+import { logger } from '../../utils/logger.js'
+
+class ConsoleAdapter {
+  async verify() {
+    logger.info('email.console', 'Console email adapter ready')
+    return true
+  }
+
+  async send({ to, subject, html, text }) {
+    logger.info('email.console', `
+=== EMAIL ===
+To: ${to}
+Subject: ${subject}
+---
+${text}
+=============
+    `)
+    
+    return {
+      success: true,
+      messageId: `console-${Date.now()}`
+    }
+  }
+}
+
+export default ConsoleAdapter
+```
+
+---
+
+## Factory
+
+### `server/src/services/email/email.factory.js`
+
+```javascript
+import SmtpAdapter from './smtp.adapter.js'
+import ConsoleAdapter from './console.adapter.js'
+import { env } from '../../config/env.js'
+import { logger } from '../../utils/logger.js'
+
+const adapters = {
+  smtp: SmtpAdapter,
+  console: ConsoleAdapter
+  // resend: ResendAdapter,  // futuro
+  // sendgrid: SendGridAdapter  // futuro
+}
+
+let adapterInstance = null
+
+export function getEmailAdapter() {
+  if (adapterInstance) return adapterInstance
+
+  const AdapterClass = adapters[env.EMAIL_PROVIDER]
+  
+  if (!AdapterClass) {
+    throw new Error(
+      `EMAIL_PROVIDER "${env.EMAIL_PROVIDER}" no válido. Opciones: ${Object.keys(adapters).join(', ')}`
+    )
+  }
+
+  adapterInstance = new AdapterClass()
+  logger.info('email.factory', `Email adapter initialized: ${env.EMAIL_PROVIDER}`)
+  
+  return adapterInstance
+}
+
+export async function verifyEmailConfig() {
+  const adapter = getEmailAdapter()
+  const isValid = await adapter.verify()
+  
+  if (!isValid) {
+    logger.warn('email.factory', 'Email configuration verification failed')
+  }
+  
+  return isValid
+}
+```
+
+---
+
+## Templates
+
+### `server/src/services/email/templates/order-confirmation.js`
+
+```javascript
+export function orderConfirmationTemplate({ 
+  customerName, 
+  publicId, 
+  totalAmount, 
+  shippingCost,
+  items,
+  magicLink 
+}) {
+  const itemsHtml = items.map(item => `
+    <tr>
+      <td>${item.productName} - ${item.size} ${item.color}</td>
+      <td>x${item.quantity}</td>
+      <td>$${item.price.toLocaleString('es-CO')}</td>
+    </tr>
+  `).join('')
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #000; color: #fff; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f9f9f9; }
+        .order-number { font-size: 24px; font-weight: bold; color: #000; margin: 20px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        .total { font-size: 18px; font-weight: bold; }
+        .button { display: inline-block; padding: 12px 24px; background: #000; color: #fff; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>GeekShop</h1>
+        </div>
+        <div class="content">
+          <h2>¡Gracias por tu compra, ${customerName}!</h2>
+          <p>Tu pedido ha sido recibido y está en proceso.</p>
+          
+          <div class="order-number">Pedido #${publicId}</div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Precio</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+              <tr>
+                <td colspan="2">Envío</td>
+                <td>$${shippingCost.toLocaleString('es-CO')}</td>
+              </tr>
+              <tr class="total">
+                <td colspan="2">Total</td>
+                <td>$${totalAmount.toLocaleString('es-CO')}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <p>Puedes consultar el estado de tu pedido en cualquier momento:</p>
+          <a href="${magicLink}" class="button">Ver mi pedido</a>
+          
+          <p><small>Este link es válido por 30 días.</small></p>
+        </div>
+        <div class="footer">
+          <p>GeekShop - Camisetas geek para developers</p>
+          <p>Si tienes dudas, contáctanos por WhatsApp</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
+
+  const text = `
+GeekShop - Confirmación de Pedido
+
+¡Gracias por tu compra, ${customerName}!
+
+Tu pedido #${publicId} ha sido recibido.
+
+Productos:
+${items.map(item => `- ${item.productName} - ${item.size} ${item.color} x${item.quantity} - $${item.price.toLocaleString('es-CO')}`).join('\n')}
+
+Envío: $${shippingCost.toLocaleString('es-CO')}
+Total: $${totalAmount.toLocaleString('es-CO')}
+
+Consulta tu pedido aquí: ${magicLink}
+
+Este link es válido por 30 días.
+  `
+
+  return { html, text }
+}
+```
+
+### `server/src/services/email/templates/magic-link.js`
+
+```javascript
+export function magicLinkTemplate({ 
+  customerName, 
+  publicId,
+  magicLink 
+}) {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #000; color: #fff; padding: 20px; text-align: center; }
+        .content { padding: 20px; background: #f9f9f9; }
+        .button { display: inline-block; padding: 12px 24px; background: #000; color: #fff; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>GeekShop</h1>
+        </div>
+        <div class="content">
+          <h2>Consulta tu pedido</h2>
+          <p>Hola ${customerName},</p>
+          <p>Haz clic en el botón para ver el estado de tu pedido #${publicId}:</p>
+          <a href="${magicLink}" class="button">Ver mi pedido</a>
+          <p><small>Este link es válido por 30 días.</small></p>
+        </div>
+        <div class="footer">
+          <p>GeekShop - Camisetas geek para developers</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `
+
+  const text = `
+GeekShop - Link de consulta de pedido
+
+Hola ${customerName},
+
+Consulta el estado de tu pedido #${publicId} aquí:
+${magicLink}
+
+Este link es válido por 30 días.
+  `
+
+  return { html, text }
+}
+```
+
+---
+
+## Service público
+
+### `server/src/services/email/email.service.js`
+
+API de alto nivel que usa el resto de la aplicación:
+
+```javascript
+import { getEmailAdapter } from './email.factory.js'
+import { orderConfirmationTemplate } from './templates/order-confirmation.js'
+import { magicLinkTemplate } from './templates/magic-link.js'
+import { logger } from '../../utils/logger.js'
+import { env } from '../../config/env.js'
+
+export async function sendOrderConfirmation(order, magicToken) {
+  try {
+    const magicLink = `${env.FRONTEND_URL}/pedido/tracking?token=${magicToken}`
+    
+    const { html, text } = orderConfirmationTemplate({
+      customerName: order.customer_name,
+      publicId: order.public_id,
+      totalAmount: order.total_amount,
+      shippingCost: order.shipping_cost,
+      items: order.items,
+      magicLink
+    })
+
+    const adapter = getEmailAdapter()
+    const result = await adapter.send({
+      to: order.email,
+      subject: `Confirmación de pedido #${order.public_id}`,
+      html,
+      text
+    })
+
+    if (!result.success) {
+      logger.error('email.service', `Failed to send order confirmation: ${result.error}`)
+    }
+
+    return result
+  } catch (err) {
+    logger.error('email.service', `Error sending order confirmation: ${err.message}`)
+    return { success: false, error: err.message }
+  }
+}
+
+export async function sendMagicLink(email, customerName, publicId, magicToken) {
+  try {
+    const magicLink = `${env.FRONTEND_URL}/pedido/tracking?token=${magicToken}`
+    
+    const { html, text } = magicLinkTemplate({
+      customerName,
+      publicId,
+      magicLink
+    })
+
+    const adapter = getEmailAdapter()
+    const result = await adapter.send({
+      to: email,
+      subject: `Consulta tu pedido #${publicId}`,
+      html,
+      text
+    })
+
+    if (!result.success) {
+      logger.error('email.service', `Failed to send magic link: ${result.error}`)
+    }
+
+    return result
+  } catch (err) {
+    logger.error('email.service', `Error sending magic link: ${err.message}`)
+    return { success: false, error: err.message }
+  }
+}
+```
+
+---
+
+## Integración en el flujo de pedidos
+
+### En `order.service.js`
+
+Modificar la función `createOrder` existente para enviar el email después de crear la orden. Importar el email service:
+
+```javascript
+import * as emailService from './email/email.service.js'
+```
+
+Después de crear la orden y generar el `magicToken`, agregar:
+
+```javascript
+// Enviar email de confirmación (no bloquear si falla)
+emailService.sendOrderConfirmation(order, magicToken).catch(err => {
+  logger.error('order.service', `Email confirmation failed: ${err.message}`)
+})
+```
+
+El `.catch()` es crítico para que el flujo del pedido continúe aunque el email falle.
+
+---
+
+## Verificación al iniciar el servidor
+
+### En `server/src/app.js`
+
+Después de configurar Express pero antes de `app.listen()`, verificar la configuración de email:
+
+```javascript
+import { verifyEmailConfig } from './services/email/email.factory.js'
+
+// Verificar configuración de email al inicio
+await verifyEmailConfig()
+```
+
+Esto detecta problemas de configuración inmediatamente en lugar de fallar cuando se intenta enviar el primer email.
+
+---
+
+## Dependencias necesarias
+
+Agregar a `server/package.json`:
+
+```json
+{
+  "dependencies": {
+    "nodemailer": "^6.9.0"
+  }
+}
+```
+
+---
+
+## Testing local
+
+### Opción 1 — Mailpit (recomendado)
+
+Ejecutar con Docker:
+
+```bash
+docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit
+```
+
+Configurar `.env`:
+```
+EMAIL_PROVIDER=smtp
+SMTP_HOST=localhost
+SMTP_PORT=1025
+```
+
+Ver emails en `http://localhost:8025`
+
+### Opción 2 — Console adapter
+
+Configurar `.env`:
+```
+EMAIL_PROVIDER=console
+```
+
+Los emails se imprimen en la consola del servidor.
+
+---
+
+## Migración futura a Resend
+
+Cuando llegue el momento de usar Resend en producción, el agente deberá:
+
+1. Crear `server/src/services/email/resend.adapter.js`
+2. Instalar `npm install resend`
+3. Implementar los métodos `send()` y `verify()` usando la API de Resend
+4. Cambiar `.env` a `EMAIL_PROVIDER=resend` y agregar `RESEND_API_KEY`
+
+El resto del código no cambia.
+
+---
+
+## Consideraciones críticas para el agente
+
+**Los templates siempre generan HTML y texto plano.** Nunca solo HTML. Algunos clientes de email o configuraciones de usuario bloquean HTML.
+
+**El envío de email nunca interrumpe el flujo del pedido.** Si `sendOrderConfirmation` falla, el pedido igual se crea correctamente. Solo se registra el error en el logger.
+
+**El adapter se verifica al iniciar el servidor.** Esto previene que la app arranque con configuración incorrecta de email.
+
+**Los templates usan inline CSS.** No usar hojas de estilo externas porque muchos clientes de email las bloquean.
+
+**El `magicLink` debe construirse con `FRONTEND_URL` del env.** No hardcodear el dominio.
+
+---
+
+## Resumen de archivos
+
+| Archivo | Acción |
+|---|---|
+| `services/email/email.interface.js` | Nuevo - documentación del contrato |
+| `services/email/smtp.adapter.js` | Nuevo - implementación SMTP |
+| `services/email/console.adapter.js` | Nuevo - implementación console |
+| `services/email/email.factory.js` | Nuevo - factory pattern |
+| `services/email/email.service.js` | Nuevo - API pública |
+| `services/email/templates/order-confirmation.js` | Nuevo - template HTML + text |
+| `services/email/templates/magic-link.js` | Nuevo - template HTML + text |
+| `services/order.service.js` | Modificar - integrar envío de email |
+| `app.js` | Modificar - verificar email al inicio |
+| `server/.env.example` | Agregar variables de email |
+| `config/env.js` | Exponer variables de email |
+
+
+
+
+● Todo implementado. Resumen de los cambios:
+
+  Archivos creados (7)
+
+  ┌───────────────────────────────────────────────────────────┬────────────────────────────────────────────────────┐
+  │                          Archivo                          │                    Descripción                     │
+  ├───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+  │ server/src/services/email/email.interface.js              │ Documentación JSDoc del contrato de adapters       │
+  ├───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+  │ server/src/services/email/smtp.adapter.js                 │ Adapter SMTP con nodemailer                        │
+  ├───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+  │ server/src/services/email/console.adapter.js              │ Adapter para testing (imprime en consola)          │
+  ├───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+  │ server/src/services/email/email.factory.js                │ Factory pattern con singleton y verificación       │
+  ├───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+  │ server/src/services/email/email.service.js                │ API pública: sendOrderConfirmation, sendMagicLink  │
+  ├───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+  │ server/src/services/email/templates/order-confirmation.js │ Template HTML + texto plano con tabla de productos │
+  ├───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+  │ server/src/services/email/templates/magic-link.js         │ Template HTML + texto plano para magic link        │
+  └───────────────────────────────────────────────────────────┴────────────────────────────────────────────────────┘
+
+  Archivos modificados (4)
+
+  ┌──────────────────────────────────────┬────────────────────────────────────────────────────────────────────────────┐
+  │               Archivo                │                                  Cambios                                   │
+  ├──────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/config/env.js             │ Variables: EMAIL_PROVIDER, SMTP_HOST/PORT/USER/PASS/SECURE, sendgridApiKey │
+  ├──────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────┤
+  │ server/.env.example                  │ Sección de email con todas las variables documentadas                      │
+  ├──────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/services/order.service.js │ Import actualizado a ./email/email.service.js                              │
+  ├──────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/app.js                    │ verifyEmailConfig() al iniciar el servidor                                 │
+  └──────────────────────────────────────┴────────────────────────────────────────────────────────────────────────────┘
+
+  Archivos eliminados (1)
+
+  ┌──────────────────────────────────────┬────────────────────────────────────────┐
+  │               Archivo                │                 Razón                  │
+  ├──────────────────────────────────────┼────────────────────────────────────────┤
+  │ server/src/services/email.service.js │ Reemplazado por email/email.service.js │
+  └──────────────────────────────────────┴────────────────────────────────────────┘
+
+  Dependencia instalada
+
+  - nodemailer agregado a server/package.json
+
+  Para probar
+
+  - Con EMAIL_PROVIDER=console los emails se imprimen en la consola del servidor
+  - Con EMAIL_PROVIDER=smtp y Mailpit (docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit), los emails se ven en http://localhost:8025
+
+✻ Cogitated for 2m 44s
+
+
+

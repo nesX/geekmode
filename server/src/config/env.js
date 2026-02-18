@@ -42,9 +42,22 @@ export const env = {
   shippingCost: parseInt(process.env.SHIPPING_COST || '12000', 10),
   freeShippingThreshold: parseInt(process.env.FREE_SHIPPING_THRESHOLD || '150000', 10),
 
-  // Email (Resend)
+  // Email
+  EMAIL_PROVIDER: process.env.EMAIL_PROVIDER || 'console',
+  emailFrom: process.env.EMAIL_FROM || 'GeekShop <noreply@geekmode.co>',
+
+  // SMTP
+  SMTP_HOST: process.env.SMTP_HOST || 'localhost',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT || '1025', 10),
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.SMTP_PASS || '',
+  SMTP_SECURE: process.env.SMTP_SECURE || 'false',
+
+  // Resend (futuro)
   resendApiKey: process.env.RESEND_API_KEY || '',
-  emailFrom: process.env.EMAIL_FROM || 'GeekShop <noreply@geekshop.co>',
+
+  // SendGrid (futuro)
+  sendgridApiKey: process.env.SENDGRID_API_KEY || '',
 
   // Frontend
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:4321',

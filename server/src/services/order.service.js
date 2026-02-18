@@ -3,7 +3,7 @@ import { env } from '../config/env.js';
 import * as orderRepo from '../repositories/order.repository.js';
 import * as stockRepo from '../repositories/stock.repository.js';
 import { getPaymentAdapter } from '../payments/payment.factory.js';
-import { sendOrderConfirmation } from './email.service.js';
+import { sendOrderConfirmation } from './email/email.service.js';
 import pool from '../config/db.js';
 import logger from '../utils/logger.js';
 

@@ -1,0 +1,182 @@
+Excelente enfoque, diseñar un sistema de email abstracto desde el inicio te ahorra mucho trabajo después. Te ayudo a plantearlo bien.
+
+---
+
+## Principios de diseño
+
+**Abstracción total:** El resto de la aplicación nunca sabe qué servicio de email está activo. Solo llama a `emailService.send()`.
+
+**Intercambiable:** Cambiar de SMTP local a Resend, SendGrid o SES implica solo crear un adaptador nuevo y cambiar una variable de entorno.
+
+**Templates separados:** El HTML de los emails vive en archivos separados, no hardcodeado en el código.
+
+**Queue-ready:** El diseño debe permitir agregar una cola (como Bull o BullMQ) en el futuro sin reescribir todo.
+
+---
+
+## Arquitectura propuesta
+
+```
+services/email/
+├── email.interface.js       ← Contrato que todos los providers cumplen
+├── smtp.adapter.js          ← SMTP local (desarrollo)
+├── resend.adapter.js        ← Resend (producción, futuro)
+├── email.factory.js         ← Decide qué adapter usar
+├── email.service.js         ← API pública que usa el resto de la app
+└── templates/
+    ├── order-confirmation.js    ← Template de confirmación de pedido
+    ├── magic-link.js            ← Template de link mágico
+    └── login-code.js            ← Template de código de inicio de sesión (futuro)
+```
+
+---
+
+## El contrato del adapter
+
+Todos los adapters implementan estos métodos:
+
+**`send({ to, subject, html, text })`** — Envía un email. Retorna `{ success: true/false, messageId }`. Si falla lanza excepción con el error del provider.
+
+**`verify()`** — Verifica que la configuración del provider es válida. Se llama al iniciar el servidor para detectar problemas antes de que ocurran.
+
+---
+
+## El factory
+
+Lee `EMAIL_PROVIDER` del `.env` y retorna el adapter correspondiente:
+
+```javascript
+const providers = {
+  smtp: SmtpAdapter,
+  resend: ResendAdapter,
+  console: ConsoleAdapter  // para testing, solo imprime en consola
+}
+```
+
+Si el provider no existe, lanza error al iniciar el servidor.
+
+---
+
+## El service (API pública)
+
+Expone funciones de alto nivel que el resto de la app usa:
+
+**`sendOrderConfirmation(order, magicToken)`** — Arma el email con el template, llama al adapter. Si falla registra en el logger pero **no lanza excepción** para no romper el flujo del pedido.
+
+**`sendMagicLink(email, token, context)`** — Para login sin contraseña. El `context` puede ser 'login' o 'order-tracking'.
+
+**`sendLoginCode(email, code)`** — Para autenticación con código de 6 dígitos (futuro).
+
+Todas estas funciones internamente llaman a `adapter.send()` pero con la lógica de negocio aplicada (qué template usar, qué datos pasar, cómo manejar errores).
+
+---
+
+## Templates
+
+Cada template es una función que recibe datos y retorna `{ html, text }`:
+
+```javascript
+export function orderConfirmationTemplate({ 
+  customerName, 
+  publicId, 
+  totalAmount, 
+  items,
+  magicLink 
+}) {
+  return {
+    html: `...HTML del email...`,
+    text: `...versión texto plano...`
+  }
+}
+```
+
+**Importante:** Siempre generar versión `text` además de `html`. Algunos clientes de email bloquean HTML o el usuario tiene configurado solo texto.
+
+---
+
+## Variables de entorno
+
+En `.env.example`:
+
+```env
+EMAIL_PROVIDER=smtp
+EMAIL_FROM=GeekShop <nopara@geekmode.co>
+
+# SMTP (desarrollo)
+SMTP_HOST=localhost
+SMTP_PORT=1025
+SMTP_USER=
+SMTP_PASS=
+
+# Resend (producción)
+RESEND_API_KEY=
+
+# SendGrid (alternativa)
+SENDGRID_API_KEY=
+```
+
+---
+
+## Testing local sin servidor SMTP real
+
+Durante desarrollo usar **Mailpit** o **MailHog**. Son servidores SMTP locales que atrapan todos los emails y los muestran en una interfaz web. No envían nada realmente.
+
+```bash
+# Instalar Mailpit
+docker run -d -p 1025:1025 -p 8025:8025 axllent/mailpit
+```
+
+Luego en `.env`:
+```
+SMTP_HOST=localhost
+SMTP_PORT=1025
+```
+
+Visitar `http://localhost:8025` para ver los emails "enviados".
+
+---
+
+## Casos de uso actuales y futuros
+
+| Caso de uso | Cuándo | Template | Prioridad |
+|---|---|---|---|
+| Confirmación de pedido | Al crear orden | `order-confirmation.js` | Ahora |
+| Link mágico tracking | Al crear orden | `magic-link.js` | Ahora |
+| Código de login | Autenticación futura | `login-code.js` | Futuro |
+| Recuperación de contraseña | Si hay cuentas con contraseña | `password-reset.js` | Futuro |
+| Actualización de estado | Cuando el pedido cambia a SHIPPED | `order-shipped.js` | Futuro |
+| Bienvenida | Al crear cuenta de usuario | `welcome.js` | Futuro |
+
+---
+
+## Lo que NO deberías hacer (trampas comunes)
+
+❌ **Hardcodear HTML en strings del código** — Usa templates en archivos separados
+
+❌ **Asumir que el email siempre se envía exitosamente** — Siempre manejar el caso de fallo sin romper el flujo
+
+❌ **Enviar emails sincrónicamente en requests HTTP críticos** — En producción esto va a una queue, pero por ahora está bien hacerlo sincrónico
+
+❌ **Usar `nodemailer` directamente en los services** — Siempre a través del adapter para mantener la abstracción
+
+---
+
+## Plan de migración a producción
+
+**Ahora (desarrollo):**
+- `EMAIL_PROVIDER=smtp` con Mailpit local
+- Emails solo se ven en `localhost:8025`
+
+**Producción inicial:**
+- `EMAIL_PROVIDER=resend` con plan gratuito (100 emails/día)
+- Crear cuenta en resend.com, obtener API key
+- Crear `resend.adapter.js` que usa `@resend/node`
+
+**Producción con tráfico alto:**
+- Agregar Bull/BullMQ para encolar emails
+- El `email.service.js` en lugar de llamar `adapter.send()` directamente, encola el job
+- Un worker procesa la cola en background
+
+---
+
+¿Quieres que diseñe el plan de implementación completo para el agente, o hay algo de la arquitectura que quieras ajustar?
