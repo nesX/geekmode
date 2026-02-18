@@ -41,6 +41,7 @@ export async function createOrder(customerData, cartItems) {
     customer_name: customerData.customer_name,
     customer_phone: customerData.customer_phone,
     customer_address: customerData.customer_address,
+    address_complement: customerData.address_complement,
     email: customerData.customer_email,
     city: customerData.city,
     department: customerData.department,

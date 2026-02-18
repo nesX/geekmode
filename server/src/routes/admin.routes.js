@@ -11,6 +11,7 @@ import { uploadImage as multerUpload, uploadImages } from '../middlewares/upload
 import * as imageController from '../controllers/admin.image.controller.js';
 import * as categoryController from '../controllers/admin.category.controller.js';
 import * as adminOrderController from '../controllers/admin.order.controller.js';
+import * as settingsController from '../controllers/settings.controller.js';
 
 const router = Router();
 
@@ -115,5 +116,8 @@ router.patch('/products/:id/categories', requireAdmin, categoryController.update
 router.get('/orders', requireAdmin, adminOrderController.getOrders);
 router.get('/orders/:publicId', requireAdmin, adminOrderController.getOrderDetail);
 router.patch('/orders/:orderId/status', requireAdmin, adminOrderController.updateStatus);
+
+// ── Settings ──
+router.patch('/settings/:key', requireAdmin, settingsController.updateSetting);
 
 export default router;

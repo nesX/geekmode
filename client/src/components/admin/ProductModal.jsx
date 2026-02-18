@@ -14,6 +14,7 @@ export default function ProductModal({ product, onClose, onSaved }) {
     base_price: product?.base_price ? Number(product.base_price) : '',
     description: product?.description || '',
     image_url: product?.image_url || '',
+    search_keywords: product?.search_keywords || '',
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -67,6 +68,7 @@ export default function ProductModal({ product, onClose, onSaved }) {
           base_price: Number(form.base_price),
           description: form.description || undefined,
           image_url: form.image_url || undefined,
+          search_keywords: form.search_keywords || '',
         };
         const res = await adminFetch(`${API_URL}/api/admin/products/${product.id}`, {
           method: 'PUT',
@@ -81,6 +83,7 @@ export default function ProductModal({ product, onClose, onSaved }) {
         formData.append('base_price', Number(form.base_price));
         if (form.description) formData.append('description', form.description);
         if (form.image_url) formData.append('image_url', form.image_url);
+        if (form.search_keywords) formData.append('search_keywords', form.search_keywords);
         files.forEach((file) => formData.append('images', file));
 
         const res = await adminFetch(`${API_URL}/api/admin/products`, {
@@ -168,6 +171,20 @@ export default function ProductModal({ product, onClose, onSaved }) {
               className="w-full bg-background border border-white/10 rounded-lg px-4 py-2.5 text-text-main placeholder-text-muted/50 focus:outline-none focus:border-primary/50 transition-colors resize-none"
               placeholder="Descripcion del producto..."
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5">Palabras clave para búsqueda (opcional)</label>
+            <textarea
+              name="search_keywords"
+              rows={2}
+              maxLength={500}
+              value={form.search_keywords}
+              onChange={handleChange}
+              className="w-full bg-background border border-white/10 rounded-lg px-4 py-2.5 text-text-main placeholder-text-muted/50 focus:outline-none focus:border-primary/50 transition-colors resize-none"
+              placeholder="python programación código serpiente desarrollo"
+            />
+            <p className="text-xs text-text-muted/60 mt-1">Estas palabras ayudan a que los clientes encuentren el producto. No son visibles en la página del producto. Separa con espacios.</p>
           </div>
 
           {/* Categories */}

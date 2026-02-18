@@ -1,0 +1,284 @@
+# Instrucciones para el Agente — Buscador con tsvector
+
+## Contexto
+Búsqueda de texto completo usando PostgreSQL `tsvector` con idioma español. El buscador es un ícono en el header que redirige a `/buscar`. La página tiene un input y muestra resultados debajo. El campo `search_vector` combina automáticamente nombre del producto, categorías y palabras clave definidas por el admin.
+
+---
+
+## Migración SQL
+
+Crear archivo `server/database/migrations/add_search_vector.sql`:
+
+```sql
+-- Agregar columna para palabras clave del admin
+ALTER TABLE products
+ADD COLUMN search_keywords TEXT DEFAULT '';
+
+-- Agregar columna tsvector para búsqueda
+ALTER TABLE products
+ADD COLUMN search_vector tsvector;
+
+-- Crear índice GIN para búsqueda eficiente
+CREATE INDEX idx_products_search_vector ON products USING GIN(search_vector);
+
+-- Función para actualizar automáticamente el search_vector
+CREATE OR REPLACE FUNCTION update_product_search_vector()
+RETURNS TRIGGER AS $$
+DECLARE
+  category_names TEXT;
+BEGIN
+  -- Obtener nombres de categorías asociadas
+  SELECT string_agg(c.name, ' ')
+  INTO category_names
+  FROM categories c
+  JOIN product_categories pc ON pc.category_id = c.id
+  WHERE pc.product_id = NEW.id;
+
+  -- Combinar nombre + descripción + keywords + categorías en el tsvector
+  NEW.search_vector := 
+    setweight(to_tsvector('spanish', COALESCE(NEW.name, '')), 'A') ||
+    setweight(to_tsvector('spanish', COALESCE(NEW.description, '')), 'B') ||
+    setweight(to_tsvector('spanish', COALESCE(NEW.search_keywords, '')), 'A') ||
+    setweight(to_tsvector('spanish', COALESCE(category_names, '')), 'B');
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger que se ejecuta al insertar o actualizar producto
+DROP TRIGGER IF EXISTS trigger_update_search_vector ON products;
+CREATE TRIGGER trigger_update_search_vector
+  BEFORE INSERT OR UPDATE OF name, description, search_keywords
+  ON products
+  FOR EACH ROW
+  EXECUTE FUNCTION update_product_search_vector();
+
+-- Trigger adicional cuando cambian las categorías
+CREATE OR REPLACE FUNCTION update_product_search_on_category_change()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE products SET updated_at = NOW() WHERE id = NEW.product_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_update_search_on_category ON product_categories;
+CREATE TRIGGER trigger_update_search_on_category
+  AFTER INSERT OR DELETE ON product_categories
+  FOR EACH ROW
+  EXECUTE FUNCTION update_product_search_on_category_change();
+
+-- Poblar search_vector de productos existentes
+UPDATE products SET updated_at = NOW();
+
+-- Comentario
+COMMENT ON COLUMN products.search_keywords IS 'Palabras clave para búsqueda separadas por espacios, no visibles para el usuario';
+```
+
+El usuario ejecutará esta migración manualmente.
+
+---
+
+## Backend
+
+### `product.repository.js`
+
+Agregar función `search(query, limit)`:
+
+```javascript
+// Búsqueda con ranking por relevancia
+const { rows } = await pool.query(
+  `SELECT p.id, p.name, p.slug, p.base_price, p.image_url,
+          COALESCE(SUM(v.stock), 0) AS total_stock,
+          ts_rank(p.search_vector, query) AS rank
+   FROM products p
+   LEFT JOIN variants v ON v.product_id = p.id
+   LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = true,
+        plainto_tsquery('spanish', $1) query
+   WHERE p.is_active = true 
+     AND p.search_vector @@ query
+   GROUP BY p.id
+   ORDER BY rank DESC, p.created_at DESC
+   LIMIT $2`,
+  [query, limit]
+)
+```
+
+La función usa `plainto_tsquery` que convierte el texto del usuario en una query válida automáticamente. El `ts_rank` ordena por relevancia.
+
+Agregar la imagen principal en el SELECT desde `product_images` igual que en las otras queries, con fallback a `image_url`.
+
+### `product.service.js`
+
+Agregar función `searchProducts(query)`:
+
+- Valida que `query` no esté vacío y tenga mínimo 2 caracteres
+- Llama a `repository.search(query, 50)` — máximo 50 resultados
+- Lanza `QUERY_TOO_SHORT` si la query es muy corta
+
+### `product.controller.js`
+
+Agregar handler `searchProducts`:
+
+- Extrae `q` de `req.query`
+- Llama al service
+- Responde con `{ products, query }` o error 400 si la query es muy corta
+
+### `public.routes.js`
+
+Agregar:
+
+```
+GET /api/products/search?q=python
+```
+
+---
+
+## Frontend Admin
+
+### `ProductModal.jsx`
+
+Agregar campo de texto después de la descripción:
+
+**Label:** "Palabras clave para búsqueda (opcional)"
+
+**Placeholder:** "python programación código serpiente desarrollo"
+
+**Tipo:** `<textarea>` con 2 filas
+
+**Ayuda visible:** Texto pequeño debajo: "Estas palabras ayudan a que los clientes encuentren el producto. No son visibles en la página del producto. Separa con espacios."
+
+**Validación:** Opcional, máximo 500 caracteres.
+
+Al guardar el producto, enviar el campo `search_keywords` al backend como string tal cual lo escribe el admin.
+
+---
+
+## Frontend Tienda
+
+### `Header.astro`
+
+Modificar el header existente para agregar un ícono de lupa junto al carrito.
+
+El ícono es un link `<a href="/buscar">` con un SVG de lupa. Sin JavaScript, navegación nativa.
+
+En mobile el ícono debe ser visible y de buen tamaño para touch.
+
+### Página `/buscar`
+
+Crear `client/src/pages/buscar.astro`.
+
+**Si no hay query param `q`** mostrar solo:
+- Input de búsqueda centrado
+- Placeholder: "Buscar camisetas..."
+- Botón de buscar o aceptar Enter
+
+**Si hay query param `q`** mostrar:
+- Input de búsqueda precargado con el valor de `q`
+- Resultados debajo en grid igual que las páginas de categorías
+- Mensaje "X resultados para 'python'" si hay resultados
+- Mensaje "No encontramos resultados para 'python'" si no hay
+- Lazy loading en todas las imágenes de productos
+
+**Comportamiento del formulario:**
+
+El form hace submit a la misma página `/buscar?q={valor}`. Es un form HTML puro con `method="GET"` y `action="/buscar"`. Sin JavaScript.
+
+**Fetch de resultados:**
+
+Si `q` existe en la URL, hacer fetch a `GET /api/products/search?q={valor}` en el frontmatter de Astro en build time. Como la página de búsqueda debería usar SSR, cambiar el export de la página:
+
+```javascript
+export const prerender = false
+```
+
+Esto hace que la página se renderice en el servidor por cada request, no en build time.
+
+**Reutilización de componentes:**
+
+Usar el mismo `ProductCard.astro` que el home. Todas las imágenes con `loading="lazy"` y `priority={false}`.
+
+---
+
+## Consideraciones para el agente
+
+**El trigger actualiza automáticamente el `search_vector`** cada vez que se modifica el nombre, descripción o keywords del producto. El agente no debe escribir lógica para actualizar manualmente el search_vector desde el código de aplicación.
+
+**El trigger de categorías** fuerza un update del producto cuando se agregan o quitan categorías para que se recalcule el search_vector incluyendo los nombres de categorías nuevos.
+
+**La búsqueda es case-insensitive** automáticamente por cómo funciona `tsvector` en PostgreSQL.
+
+**El stemming en español** significa que buscar "programación" también encuentra "programador", "programa", etc. Esto mejora significativamente los resultados.
+
+**SSR en la página de búsqueda** es necesario porque los resultados cambian según el query param. No se puede pre-renderizar en build time.
+
+---
+
+## Resumen de archivos
+
+| Archivo | Acción |
+|---|---|
+| `server/database/migrations/add_search_vector.sql` | Crear migración nueva |
+| `product.repository.js` | Agregar función `search` |
+| `product.service.js` | Agregar función `searchProducts` |
+| `product.controller.js` | Agregar handler `searchProducts` |
+| `public.routes.js` | Agregar ruta de búsqueda |
+| `admin/ProductModal.jsx` | Agregar campo `search_keywords` |
+| `ui/Header.astro` | Agregar ícono de lupa con link |
+| `pages/buscar.astro` | Página nueva con SSR |
+
+
+
+
+
+
+
+● Todo implementado. Aquí un resumen de los cambios:                                                                                                                                                                                                          
+                                   
+  Archivos creados                                                                                                                                                                                                                                            
+                                                             
+  ┌──────────────────────────────────────────────────────┬──────────────────────────────────────────────────────────────────────────────────────────┐                                                                                                         
+  │                       Archivo                        │                                       Descripción                                        │                                                                                                         
+  ├──────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/database/migrations/007_add_search_vector.sql │ Migración con columnas search_keywords y search_vector, índice GIN, triggers automáticos │                                                                                                         
+  ├──────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────────────────────────────┤                                                                                                         
+  │ client/src/pages/buscar.astro                        │ Página SSR con form GET, grid de resultados, mensajes de estado                          │                                                                                                         
+  └──────────────────────────────────────────────────────┴──────────────────────────────────────────────────────────────────────────────────────────┘                                                                                                         
+                                                                                                                                                                                                                                                              
+  Archivos modificados                                                                                                                                                                                                                                        
+
+  ┌────────────────────────────────────────────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │                      Archivo                       │                                              Cambios                                               │
+  ├────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/repositories/product.repository.js      │ Función search() con plainto_tsquery + ts_rank; create() y update() ahora incluyen search_keywords │
+  ├────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/services/product.service.js             │ Función searchProducts() con validación mínimo 2 caracteres                                        │
+  ├────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/controllers/product.controller.js       │ Handler searchProducts                                                                             │
+  ├────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/controllers/admin.product.controller.js │ Schema Zod acepta search_keywords                                                                  │
+  ├────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/routes/public.routes.js                 │ Ruta GET /api/products/search?q= (antes de :slug para evitar conflicto)                            │
+  ├────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ client/src/components/admin/ProductModal.jsx       │ Campo textarea para keywords con placeholder y texto de ayuda                                      │
+  ├────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ client/src/components/ui/Header.astro              │ Ícono de lupa SVG con link a /buscar                                                               │
+  ├────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ client/src/lib/api.js                              │ Función searchProducts()                                                                           │
+  ├────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ client/astro.config.mjs                            │ Output cambiado a hybrid + adapter @astrojs/node para SSR                                          │
+  └────────────────────────────────────────────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Siguiente paso
+
+  Ejecutar manualmente la migración 007_add_search_vector.sql en tu base de datos PostgreSQL.
+
+
+
+
+> geekshop-client@0.0.1 dev
+> astro dev
+
+[config] Astro found issue(s) with your configuration:
+
+! The output: "hybrid" option has been removed. Use output: "static" (the default) instead, which now behaves the same way.

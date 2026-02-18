@@ -7,15 +7,16 @@ export async function create(orderData) {
 
     const { rows: [order] } = await client.query(
       `INSERT INTO orders
-        (public_id, customer_name, customer_phone, customer_address, email, city, department,
+        (public_id, customer_name, customer_phone, customer_address, address_complement, email, city, department,
          total_amount, shipping_cost, status, payment_method, magic_token, magic_token_expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
       [
         orderData.public_id,
         orderData.customer_name,
         orderData.customer_phone,
         orderData.customer_address,
+        orderData.address_complement || null,
         orderData.email,
         orderData.city,
         orderData.department,

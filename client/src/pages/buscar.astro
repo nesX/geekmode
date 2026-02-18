@@ -1,0 +1,79 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import ProductCard from '../components/shop/ProductCard.astro';
+import { searchProducts } from '../lib/api';
+
+const q = Astro.url.searchParams.get('q')?.trim() || '';
+
+let products = [];
+let error = false;
+
+if (q && q.length >= 2) {
+  try {
+    const data = await searchProducts(q);
+    products = data.products || [];
+  } catch {
+    error = true;
+  }
+}
+
+const mappedProducts = products.map((p) => ({
+  id: p.id,
+  slug: p.slug,
+  name: p.name,
+  price: Number(p.base_price),
+  images: [p.image_url || '/images/camiseta-template.png'],
+}));
+---
+
+<Layout title={q ? `Resultados para "${q}"` : 'Buscar'} description="Busca productos en GeekShop">
+  <div class="max-w-2xl mx-auto mb-10">
+    <form method="GET" action="/buscar" class="flex gap-3">
+      <input
+        type="text"
+        name="q"
+        value={q}
+        placeholder="Buscar camisetas..."
+        minlength="2"
+        required
+        class="flex-1 bg-surface border border-white/10 rounded-xl px-5 py-3 text-text-main placeholder-text-muted/50 focus:outline-none focus:border-primary/50 transition-colors text-lg"
+        autofocus
+      />
+      <button
+        type="submit"
+        class="bg-primary hover:opacity-90 text-white font-bold px-6 py-3 rounded-xl transition-all"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="m21 21-4.3-4.3"/>
+        </svg>
+      </button>
+    </form>
+  </div>
+
+  {q && q.length >= 2 && !error && mappedProducts.length > 0 && (
+    <div>
+      <p class="text-text-muted mb-6">{mappedProducts.length} resultado(s) para "<span class="text-text-main font-semibold">{q}</span>"</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {mappedProducts.map((product) => (
+          <ProductCard product={product} priority={false} />
+        ))}
+      </div>
+    </div>
+  )}
+
+  {q && q.length >= 2 && !error && mappedProducts.length === 0 && (
+    <div class="text-center py-24 text-text-muted">
+      <p class="text-lg">No encontramos resultados para "<span class="text-text-main font-semibold">{q}</span>"</p>
+      <p class="mt-2 text-sm">Intenta con otras palabras clave</p>
+    </div>
+  )}
+
+  {error && (
+    <div class="text-center py-24 text-text-muted">
+      <p>Ocurrió un error al buscar. Intenta de nuevo.</p>
+    </div>
+  )}
+</Layout>

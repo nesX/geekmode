@@ -1,7 +1,7 @@
 ### ! Cambiar las credenciasles en .env, claude accedio! a ellas
 
 
-# Agregar el campo de complemento en la direccion, para agregar conjunto, torre, apto, barrio
+
 
 # Dejar listo el envio del email, que simplemente solo falte agregar el servicio pago, minetras se pueda hacer pruebas con servicios gratis
 
@@ -9,8 +9,6 @@
 
 
 # Agregar creacion de miniaturas para cargar en el home u otras partes que no sea el producto
-
-# Agregar buscar, que pueda buscar por palabras ejemplo, simpson, dragon , ...
 
 # Crear cuenta usuario para ver pedidos
 
@@ -28,4 +26,4 @@
 # Kids ??
 
 
-
+# Asignar bogota como la primera opcion

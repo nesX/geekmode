@@ -8,6 +8,7 @@ const ProductSchema = z.object({
   description: z.string().optional(),
   base_price: z.number().positive(),
   image_url: z.string().url().optional(),
+  search_keywords: z.string().max(500).optional(),
 });
 
 const VariantSchema = z.object({

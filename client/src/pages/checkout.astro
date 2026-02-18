@@ -1,8 +1,28 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import CheckoutForm from '../components/shop/CheckoutForm.jsx';
+import { fetchSettings } from '../lib/api';
+import { buildWhatsAppLink } from '../utils/buildWhatsAppLink';
+
+let waLink = '';
+try {
+  const settings = await fetchSettings();
+  if (settings.contact_whatsapp) {
+    waLink = buildWhatsAppLink(settings.contact_whatsapp, 'checkout');
+  }
+} catch {
+  // sin link de whatsapp
+}
 ---
 
 <Layout title="Checkout">
   <CheckoutForm client:only="react" />
+  {waLink && (
+    <p class="text-center text-sm text-text-muted mt-6">
+      ¿Problemas para completar tu compra?
+      <a href={waLink} target="_blank" rel="noopener noreferrer" class="text-green-400 hover:underline ml-1">
+        Escríbenos por WhatsApp
+      </a>
+    </p>
+  )}
 </Layout>

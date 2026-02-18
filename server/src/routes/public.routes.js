@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as productController from '../controllers/product.controller.js';
 import * as categoryController from '../controllers/category.controller.js';
 import * as orderController from '../controllers/order.controller.js';
+import * as settingsController from '../controllers/settings.controller.js';
 
 const router = Router();
 
@@ -23,6 +24,12 @@ router.get('/health', (req, res) => {
 router.get('/home', productController.getHomeData);
 
 /**
+ * GET /api/products/search?q=python
+ * Search products using full-text search
+ */
+router.get('/products/search', productController.searchProducts);
+
+/**
  * GET /api/products
  * List all active products
  */
@@ -39,6 +46,9 @@ router.get('/products/:id/related', productController.getRelatedProducts);
  * Get product detail by slug
  */
 router.get('/products/:slug', productController.getProductBySlug);
+
+// ── Settings ──
+router.get('/settings', settingsController.getPublicSettings);
 
 // ── Categories ──
 router.get('/categories', categoryController.getCategories);

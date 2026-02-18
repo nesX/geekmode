@@ -71,23 +71,23 @@ export async function findAll() {
   return rows;
 }
 
-export async function create({ name, slug, description, base_price, image_url }) {
+export async function create({ name, slug, description, base_price, image_url, search_keywords }) {
   const { rows } = await pool.query(
-    `INSERT INTO products (name, slug, description, base_price, image_url)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO products (name, slug, description, base_price, image_url, search_keywords)
+     VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
-    [name, slug, description, base_price, image_url]
+    [name, slug, description, base_price, image_url, search_keywords || '']
   );
   return rows[0];
 }
 
-export async function update(id, { name, slug, description, base_price, image_url }) {
+export async function update(id, { name, slug, description, base_price, image_url, search_keywords }) {
   const { rows } = await pool.query(
     `UPDATE products
-     SET name = $2, slug = $3, description = $4, base_price = $5, image_url = $6
+     SET name = $2, slug = $3, description = $4, base_price = $5, image_url = $6, search_keywords = $7
      WHERE id = $1
      RETURNING *`,
-    [id, name, slug, description, base_price, image_url]
+    [id, name, slug, description, base_price, image_url, search_keywords || '']
   );
   return rows[0] || null;
 }
@@ -123,6 +123,27 @@ export async function findVariantsByProductId(productId) {
     'SELECT * FROM variants WHERE product_id = $1 ORDER BY color, size',
     [productId]
   );
+  return rows;
+}
+
+// ── Search ──
+
+export async function search(query, limit = 50) {
+  const { rows } = await pool.query(`
+    SELECT
+      p.id, p.name, p.slug, p.base_price,
+      COALESCE(pi.image_url, p.image_url) AS image_url,
+      COALESCE(SUM(v.stock), 0)::int AS total_stock,
+      ts_rank(p.search_vector, plainto_tsquery('spanish', $1)) AS rank
+    FROM products p
+    LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = true
+    LEFT JOIN variants v ON v.product_id = p.id
+    WHERE p.is_active = true
+      AND p.search_vector @@ plainto_tsquery('spanish', $1)
+    GROUP BY p.id, pi.image_url
+    ORDER BY rank DESC, p.created_at DESC
+    LIMIT $2
+  `, [query, limit]);
   return rows;
 }
 

@@ -1,8 +1,41 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import OrderConfirmation from '../../components/shop/OrderConfirmation.jsx';
+import { fetchSettings } from '../../lib/api';
+import { buildWhatsAppLink } from '../../utils/buildWhatsAppLink';
+
+let waPhone = '';
+try {
+  const settings = await fetchSettings();
+  waPhone = settings.contact_whatsapp || '';
+} catch {
+  // sin link de whatsapp
+}
 ---
 
 <Layout title="Pedido Confirmado">
   <OrderConfirmation client:only="react" />
+  {waPhone && (
+    <p class="text-center text-sm text-text-muted mt-6" id="wa-contact">
+      ¿Tienes dudas sobre tu pedido?
+      <a id="wa-link" href="#" target="_blank" rel="noopener noreferrer" class="text-green-400 hover:underline ml-1">
+        Contáctanos por WhatsApp
+      </a>
+    </p>
+  )}
 </Layout>
+
+{waPhone && (
+  <script define:vars={{ waPhone }}>
+    // Obtener publicId del URL para personalizar el mensaje
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    const cleanPhone = waPhone.replace(/[\s\-\(\)]/g, '');
+    const orderId = token ? token.slice(0, 8) : '';
+    const message = orderId ? `Hola, mi pedido es ${orderId}` : 'Hola, tengo dudas sobre mi pedido';
+    const link = document.getElementById('wa-link');
+    if (link) {
+      link.href = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
+    }
+  </script>
+)}

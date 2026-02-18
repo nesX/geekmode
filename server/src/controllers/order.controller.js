@@ -7,6 +7,7 @@ const CreateOrderSchema = z.object({
   customer_email: z.string().email('Email inválido'),
   customer_phone: z.string().min(7, 'Teléfono requerido'),
   customer_address: z.string().min(5, 'Dirección requerida'),
+  address_complement: z.string().max(500).optional().nullable(),
   city: z.string().min(2, 'Ciudad requerida'),
   department: z.string().min(2, 'Departamento requerido'),
   items: z.array(z.object({

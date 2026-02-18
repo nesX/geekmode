@@ -41,6 +41,24 @@ export async function fetchCategoryBySlug(slug) {
   return data;
 }
 
+export async function fetchSettings() {
+  const res = await fetch(`${API_URL}/api/settings`);
+  if (!res.ok) throw new Error('Failed to fetch settings');
+  const data = await res.json();
+  const map = {};
+  for (const s of data.settings) {
+    map[s.key] = s.value;
+  }
+  return map;
+}
+
+export async function searchProducts(query) {
+  const res = await fetch(`${API_URL}/api/products/search?q=${encodeURIComponent(query)}`);
+  if (!res.ok) throw new Error('Failed to search products');
+  const data = await res.json();
+  return data;
+}
+
 export async function createOrder(orderData) {
   const res = await fetch(`${API_URL}/api/orders`, {
     method: 'POST',

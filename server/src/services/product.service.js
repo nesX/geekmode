@@ -48,6 +48,15 @@ export async function getHomeData() {
   return { newest, categories };
 }
 
+// ── Search ──
+
+export async function searchProducts(query) {
+  if (!query || query.trim().length < 2) {
+    throw new Error('QUERY_TOO_SHORT');
+  }
+  return productRepo.search(query.trim(), 50);
+}
+
 // ── Admin functions ──
 
 function slugify(text) {

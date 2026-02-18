@@ -15,6 +15,7 @@ export default function CheckoutForm() {
     customer_email: '',
     customer_phone: '',
     customer_address: '',
+    address_complement: '',
     city: '',
     department: '',
   });
@@ -152,6 +153,19 @@ export default function CheckoutForm() {
               onChange={handleChange}
               required
               className="w-full px-4 py-3 rounded-lg bg-background border border-white/10 text-text-main focus:outline-none focus:border-primary"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-muted mb-1">Complemento (opcional)</label>
+            <textarea
+              name="address_complement"
+              value={form.address_complement}
+              onChange={handleChange}
+              maxLength={500}
+              rows={3}
+              placeholder="Torre, apartamento, barrio, conjunto..."
+              className="w-full px-4 py-3 rounded-lg bg-background border border-white/10 text-text-main focus:outline-none focus:border-primary resize-none"
             />
           </div>
 

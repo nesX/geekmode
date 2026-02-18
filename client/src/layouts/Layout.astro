@@ -1,6 +1,7 @@
 ---
 import { ClientRouter } from 'astro:transitions';
 import Header from '../components/ui/Header.astro';
+import Footer from '../components/ui/Footer.astro';
 import CartFlyout from '../components/shop/CartFlyout.jsx';
 import '../styles/global.css';
 
@@ -29,11 +30,7 @@ const { title, description = 'GeekShop - Estilo Geek para Desarrolladores' } = A
     <main class="flex-grow container mx-auto px-4 py-8">
       <slot />
     </main>
-    <footer class="bg-surface text-text-muted py-12 mt-auto border-t border-white/5">
-      <div class="container mx-auto px-4 text-center">
-        <p>&copy; {new Date().getFullYear()} GeekShop. Hecho con ❤️ para la comunidad dev.</p>
-      </div>
-    </footer>
+    <Footer />
     <CartFlyout client:load />
   </body>
 </html>

@@ -31,6 +31,19 @@ export async function getRelatedProducts(req, res) {
   }
 }
 
+export async function searchProducts(req, res) {
+  try {
+    const products = await productService.searchProducts(req.query.q);
+    res.json({ products, query: req.query.q });
+  } catch (err) {
+    if (err.message === 'QUERY_TOO_SHORT') {
+      return res.status(400).json({ message: 'La búsqueda debe tener al menos 2 caracteres' });
+    }
+    logger.error('product.controller', `Error searching products: ${err.message}`);
+    res.status(500).json({ message: 'Error al buscar productos' });
+  }
+}
+
 export async function getProductBySlug(req, res) {
   try {
     const product = await productService.getProductBySlug(req.params.slug);

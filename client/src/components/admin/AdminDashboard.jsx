@@ -4,6 +4,7 @@ import { authUser, logout } from '../../lib/authStore';
 import ProductsTable from './ProductsTable.jsx';
 import CategoriesTable from './CategoriesTable.jsx';
 import OrdersView from './OrdersView.jsx';
+import SettingsView from './SettingsView.jsx';
 import {
   LayoutDashboard,
   Package,
@@ -209,12 +210,7 @@ export default function AdminDashboard() {
               <p>Proximamente</p>
             </div>
           )}
-          {activeView === 'settings' && (
-            <div className="flex flex-col items-center justify-center py-24 text-text-muted">
-              <Settings className="w-16 h-16 mb-4 opacity-50" />
-              <p>Proximamente</p>
-            </div>
-          )}
+          {activeView === 'settings' && <SettingsView />}
         </div>
       </main>
     </div>
