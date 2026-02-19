@@ -36,16 +36,33 @@ export default function ProductModal({ product, onClose, onSaved }) {
   const [allCategories, setAllCategories] = useState([]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
 
+  // Tags
+  const [allTags, setAllTags] = useState([]);
+  const [selectedTagIds, setSelectedTagIds] = useState([]);
+
   useEffect(() => {
     adminFetch(`${API_URL}/api/admin/categories`)
       .then((r) => r.json())
       .then((data) => setAllCategories(data.categories.filter((c) => c.is_active)))
       .catch(() => {});
 
+    adminFetch(`${API_URL}/api/admin/tags`)
+      .then((r) => r.json())
+      .then((data) => setAllTags(data.tags))
+      .catch(() => {});
+
     if (isEdit) {
       adminFetch(`${API_URL}/api/admin/products/${product.id}/categories`)
         .then((r) => r.json())
         .then((data) => setSelectedCategoryIds(data.categories.map((c) => c.id)))
+        .catch(() => {});
+
+      fetch(`${API_URL}/api/products/${product.slug || product.id}`)
+        .then((r) => r.json())
+        .then((data) => {
+          const tags = data.product?.tags || [];
+          setSelectedTagIds(tags.map((t) => t.id));
+        })
         .catch(() => {});
     }
   }, []);
@@ -54,6 +71,14 @@ export default function ProductModal({ product, onClose, onSaved }) {
     setSelectedCategoryIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
+  };
+
+  const toggleTag = (id) => {
+    setSelectedTagIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 10) return prev;
+      return [...prev, id];
+    });
   };
 
   const { files, previews, errors: imageErrors, handleSelect, removeFile } = useImageUpload();
@@ -116,6 +141,13 @@ export default function ProductModal({ product, onClose, onSaved }) {
           body: JSON.stringify({ categoryIds: selectedCategoryIds }),
         });
       }
+
+      // Save tags
+      await adminFetch(`${API_URL}/api/admin/products/${productId}/tags`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tagIds: selectedTagIds }),
+      });
 
       onSaved();
       if (isEdit) {
@@ -225,6 +257,39 @@ export default function ProductModal({ product, onClose, onSaved }) {
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Tags */}
+          {allTags.length > 0 && (
+            <div>
+              <label className="block text-xs font-bold text-text-muted uppercase tracking-wider mb-1.5">
+                Tags {selectedTagIds.length > 0 && <span className="text-primary">({selectedTagIds.length}/10)</span>}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {allTags.map((tag) => {
+                  const selected = selectedTagIds.includes(tag.id);
+                  const limitReached = !selected && selectedTagIds.length >= 10;
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleTag(tag.id)}
+                      disabled={limitReached}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${
+                        selected
+                          ? 'bg-secondary/20 border-secondary/50 text-secondary'
+                          : 'bg-background border-white/10 text-text-muted hover:border-white/20 disabled:opacity-40 disabled:cursor-not-allowed'
+                      }`}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedTagIds.length >= 10 && (
+                <p className="text-xs text-text-muted/60 mt-1">Límite de 10 tags alcanzado.</p>
+              )}
             </div>
           )}
 

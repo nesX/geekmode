@@ -120,6 +120,12 @@ export async function getProductCategories(productId) {
   return productRepo.findCategoriesByProductId(productId);
 }
 
+export async function updateProductTags(productId, tagIds) {
+  const product = await productRepo.findById(productId);
+  if (!product) throw new Error('PRODUCT_NOT_FOUND');
+  await productRepo.setTags(productId, tagIds);
+}
+
 export async function getRelatedProducts(productId) {
   const categories = await productRepo.findCategoriesByProductId(productId);
   const categoryIds = categories.map(c => c.id);

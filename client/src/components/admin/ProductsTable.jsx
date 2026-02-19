@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { adminFetch } from '../../lib/authStore';
 import ProductModal from './ProductModal.jsx';
 import VariantsModal from './VariantsModal.jsx';
-import { Plus, Pencil, Layers, XCircle, Package, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Layers, XCircle, Package, Loader2, ExternalLink } from 'lucide-react';
 import { getProductImageUrl } from '../../utils/imageUrl';
 
 const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
@@ -138,6 +138,17 @@ export default function ProductsTable() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
+                      {p.is_active && (
+                        <a
+                          href={`/producto/${p.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Ver producto publicado"
+                          className="p-2 rounded-lg hover:bg-white/10 text-text-muted hover:text-accent transition-colors"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      )}
                       <button
                         onClick={() => setProductModal({ open: true, product: p })}
                         title="Editar"

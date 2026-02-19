@@ -36,10 +36,17 @@ export async function findBySlug(slug) {
         json_agg(DISTINCT jsonb_build_object('id', v.id, 'size', v.size, 'color', v.color, 'stock', v.stock))
         FILTER (WHERE v.id IS NOT NULL),
         '[]'
-      ) AS variants
+      ) AS variants,
+      COALESCE(
+        json_agg(DISTINCT jsonb_build_object('id', t.id, 'name', t.name, 'slug', t.slug))
+        FILTER (WHERE t.id IS NOT NULL),
+        '[]'
+      ) AS tags
     FROM products p
     LEFT JOIN product_images pi ON pi.product_id = p.id
     LEFT JOIN variants v ON v.product_id = p.id
+    LEFT JOIN product_tags pt ON pt.product_id = p.id
+    LEFT JOIN tags t ON t.id = pt.tag_id AND t.is_active = true
     WHERE p.slug = $1 AND p.is_active = true
     GROUP BY p.id
   `, [slug]);
@@ -242,6 +249,37 @@ export async function findRelated(productId, categoryIds, limit = 5) {
   }
 
   return related;
+}
+
+export async function setTags(productId, tagIds) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM product_tags WHERE product_id = $1', [productId]);
+    for (const tagId of tagIds) {
+      await client.query(
+        'INSERT INTO product_tags (product_id, tag_id) VALUES ($1, $2)',
+        [productId, tagId]
+      );
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function findTagsByProductId(productId) {
+  const { rows } = await pool.query(
+    `SELECT t.* FROM tags t
+     JOIN product_tags pt ON pt.tag_id = t.id
+     WHERE pt.product_id = $1 AND t.is_active = true
+     ORDER BY t.name ASC`,
+    [productId]
+  );
+  return rows;
 }
 
 export async function findCategoriesByProductId(productId) {

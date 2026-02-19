@@ -3,6 +3,10 @@ import * as productService from '../services/product.service.js';
 import * as imageService from '../services/image.service.js';
 import logger from '../utils/logger.js';
 
+const UpdateTagsSchema = z.object({
+  tagIds: z.array(z.number().int().positive()).max(10),
+});
+
 const ProductSchema = z.object({
   name: z.string().min(3),
   description: z.string().optional(),
@@ -107,6 +111,23 @@ export async function addVariant(req, res) {
     }
     logger.error('admin.product.controller', `addVariant error: ${err.message}`);
     res.status(500).json({ message: 'Error al agregar variante' });
+  }
+}
+
+export async function updateTags(req, res) {
+  try {
+    const { tagIds } = UpdateTagsSchema.parse(req.body);
+    await productService.updateProductTags(Number(req.params.id), tagIds);
+    res.json({ ok: true });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ message: 'Datos invalidos', errors: err.errors });
+    }
+    if (err.message === 'PRODUCT_NOT_FOUND') {
+      return res.status(404).json({ message: 'Producto no encontrado' });
+    }
+    logger.error('admin.product.controller', `updateTags error: ${err.message}`);
+    res.status(500).json({ message: 'Error al actualizar tags del producto' });
   }
 }
 

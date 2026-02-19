@@ -5,6 +5,7 @@ import ProductsTable from './ProductsTable.jsx';
 import CategoriesTable from './CategoriesTable.jsx';
 import OrdersView from './OrdersView.jsx';
 import SettingsView from './SettingsView.jsx';
+import TagsView from './TagsView.jsx';
 import {
   LayoutDashboard,
   Package,
@@ -91,6 +92,7 @@ const views = [
   { key: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { key: 'products', icon: Package, label: 'Productos' },
   { key: 'categories', icon: Tag, label: 'Categorias' },
+  { key: 'tags', icon: Tag, label: 'Tags' },
   { key: 'orders', icon: ShoppingCart, label: 'Pedidos' },
   { key: 'customers', icon: Users, label: 'Clientes' },
   { key: 'settings', icon: Settings, label: 'Configuracion' },
@@ -111,6 +113,7 @@ export default function AdminDashboard() {
     dashboard: 'Dashboard',
     products: 'Productos',
     categories: 'Categorias',
+    tags: 'Tags',
     orders: 'Pedidos',
     customers: 'Clientes',
     settings: 'Configuracion',
@@ -203,6 +206,7 @@ export default function AdminDashboard() {
           {activeView === 'dashboard' && <DashboardContent user={user} />}
           {activeView === 'products' && <ProductsTable />}
           {activeView === 'categories' && <CategoriesTable />}
+          {activeView === 'tags' && <TagsView />}
           {activeView === 'orders' && <OrdersView />}
           {activeView === 'customers' && (
             <div className="flex flex-col items-center justify-center py-24 text-text-muted">

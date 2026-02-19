@@ -52,6 +52,20 @@ export async function fetchSettings() {
   return map;
 }
 
+export async function fetchTags() {
+  const res = await fetch(`${API_URL}/api/tags`);
+  if (!res.ok) throw new Error('Failed to fetch tags');
+  const data = await res.json();
+  return data.tags;
+}
+
+export async function fetchTagBySlug(slug) {
+  const res = await fetch(`${API_URL}/api/tags/${slug}/products`);
+  if (!res.ok) throw new Error('Failed to fetch tag');
+  const data = await res.json();
+  return data;
+}
+
 export async function searchProducts(query) {
   const res = await fetch(`${API_URL}/api/products/search?q=${encodeURIComponent(query)}`);
   if (!res.ok) throw new Error('Failed to search products');

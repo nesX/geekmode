@@ -3,6 +3,7 @@ import * as productController from '../controllers/product.controller.js';
 import * as categoryController from '../controllers/category.controller.js';
 import * as orderController from '../controllers/order.controller.js';
 import * as settingsController from '../controllers/settings.controller.js';
+import * as tagController from '../controllers/tag.controller.js';
 
 const router = Router();
 
@@ -53,6 +54,10 @@ router.get('/settings', settingsController.getPublicSettings);
 // ── Categories ──
 router.get('/categories', categoryController.getCategories);
 router.get('/categories/:slug/products', categoryController.getCategoryBySlug);
+
+// ── Tags ──
+router.get('/tags', tagController.getTags);
+router.get('/tags/:slug/products', tagController.getTagBySlug);
 
 // ── Orders ──
 router.post('/orders', orderController.createOrder);

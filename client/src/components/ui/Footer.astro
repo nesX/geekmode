@@ -1,10 +1,21 @@
 ---
-import { fetchSettings } from '../../lib/api';
+import { fetchSettings, fetchTags } from '../../lib/api';
 import { buildWhatsAppLink } from '../../utils/buildWhatsAppLink';
 
 let settings = {};
 try {
   settings = await fetchSettings();
+} catch {
+  // fallback vacío
+}
+
+let popularTags = [];
+try {
+  const allTags = await fetchTags();
+  popularTags = allTags
+    .filter((t) => (t.product_count ?? 0) > 0)
+    .sort((a, b) => (b.product_count ?? 0) - (a.product_count ?? 0))
+    .slice(0, 10);
 } catch {
   // fallback vacío
 }
@@ -17,7 +28,7 @@ const waLink = phone ? buildWhatsAppLink(phone, 'general') : '';
 
 <footer class="bg-surface text-text-muted py-12 mt-auto border-t border-white/5">
   <div class="container mx-auto px-4">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
       {/* Brand */}
       <div>
         <a href="/" class="text-xl font-bold text-text-main flex items-center gap-2 mb-3">
@@ -37,6 +48,20 @@ const waLink = phone ? buildWhatsAppLink(phone, 'general') : '';
           <li><a href="/contacto" class="hover:text-primary transition-colors">Contacto</a></li>
         </ul>
       </div>
+
+      {/* Tags Populares */}
+      {popularTags.length > 0 && (
+        <div>
+          <h3 class="text-sm font-bold text-text-main uppercase tracking-wider mb-3">Tags Populares</h3>
+          <div class="flex flex-wrap gap-2">
+            {popularTags.map((tag) => (
+              <a href={`/tags/${tag.slug}`} class="text-xs hover:text-primary transition-colors border border-white/10 rounded-full px-2.5 py-1 hover:border-primary/40">
+                {tag.name}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Contacto */}
       <div>

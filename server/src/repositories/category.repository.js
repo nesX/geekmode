@@ -55,13 +55,15 @@ export async function findBySlug(slug) {
 export async function findProductsByCategory(categoryId) {
   const { rows } = await pool.query(`
     SELECT
-      p.id, p.name, p.slug, p.description, p.base_price, p.image_url,
+      p.id, p.name, p.slug, p.description, p.base_price,
+      COALESCE(pi.filename, p.image_filename) AS image_filename,
       COALESCE(SUM(v.stock), 0)::int AS total_stock
     FROM products p
     JOIN product_categories pc ON pc.product_id = p.id
+    LEFT JOIN product_images pi ON pi.product_id = p.id AND pi.is_primary = true
     LEFT JOIN variants v ON v.product_id = p.id
     WHERE pc.category_id = $1 AND p.is_active = true
-    GROUP BY p.id
+    GROUP BY p.id, pi.filename
     ORDER BY p.created_at DESC
   `, [categoryId]);
   return rows;

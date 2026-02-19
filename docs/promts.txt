@@ -1,0 +1,16 @@
+
+
+[Midjourney promt]
+[Crypto]
+
+Versatil:
+t-shirt graphic design for [BITCOIN BTC LOGO]. The central logo is constructed from flowing interconnected circuit board lines, data streams, 
+and abstract network nodes that dissipate and fade outwards into transparency. Minimalist techwear style. Color palette is glowing white, electric blue, 
+and subtle orange accents, optimized for a black shirt base. No hard outer borders, fluid integration, halftone dot fade effect at edges. Isolated on solid black background --ar 4:5 --stylize 250 --v 6.0
+
+Limpio:
+A technical blueprint t-shirt graphic for [BITCOIN BTC LOGO]. Deconstructed schematic view composed of fine white and cyan glowing lines, technical callouts, and geometric wireframe structures floating in space. The edges of the design are open and trailing off, using negative space to integrate with the shirt. Futuristic, clean, sophisticated. Isolated on black background --ar 4:5 --stylize 300 --v 6.0
+
+Artistico:
+Minimalist t-shirt print for [BITCOIN BTC LOGO] made of shattering geometric particles and abstract polygon shapes flying outwards. The central logo is solid white and gold, breaking apart into smaller fragments that fade to transparent at the peripheries. Dynamic motion, clean aesthetic, no containing box shape. High contrast against a black shirt background --ar 4:5 --stylize 200 --v 6.0
+

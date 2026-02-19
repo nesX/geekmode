@@ -12,6 +12,7 @@ import * as imageController from '../controllers/admin.image.controller.js';
 import * as categoryController from '../controllers/admin.category.controller.js';
 import * as adminOrderController from '../controllers/admin.order.controller.js';
 import * as settingsController from '../controllers/settings.controller.js';
+import * as adminTagController from '../controllers/admin.tag.controller.js';
 
 const router = Router();
 
@@ -111,6 +112,15 @@ router.delete('/categories/:id', requireAdmin, categoryController.deactivateCate
 // ── Product Categories ──
 router.get('/products/:id/categories', requireAdmin, categoryController.getProductCategories);
 router.patch('/products/:id/categories', requireAdmin, categoryController.updateProductCategories);
+
+// ── Tags ──
+router.get('/tags', requireAdmin, adminTagController.getAllTags);
+router.post('/tags', requireAdmin, adminTagController.createTag);
+router.put('/tags/:id', requireAdmin, adminTagController.updateTag);
+router.delete('/tags/:id', requireAdmin, adminTagController.deleteTag);
+
+// ── Product Tags ──
+router.patch('/products/:id/tags', requireAdmin, adminProductController.updateTags);
 
 // ── Orders ──
 router.get('/orders', requireAdmin, adminOrderController.getOrders);

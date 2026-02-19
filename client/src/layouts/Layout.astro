@@ -11,7 +11,7 @@ import '../styles/global.css';
  * @property {string} [description] - Descripción para SEO.
  */
 
-const { title, description = 'GeekShop - Estilo Geek para Desarrolladores' } = Astro.props;
+const { title, description = 'GeekShop - Estilo Geek para Desarrolladores', noindex = false } = Astro.props;
 ---
 
 <!doctype html>
@@ -23,6 +23,7 @@ const { title, description = 'GeekShop - Estilo Geek para Desarrolladores' } = A
     <meta name="generator" content={Astro.generator} />
     <title>{title} | GeekShop</title>
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex, follow" />}
     <ClientRouter />
   </head>
   <body class="bg-background text-text-main min-h-screen flex flex-col font-sans antialiased">

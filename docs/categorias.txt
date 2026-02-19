@@ -1,0 +1,53 @@
+. </Dev Life> (Programación y Código)
+
+Esta categoría es el corazón para los desarrolladores. Puedes dividirla por áreas para que sea más fácil de explorar:
+
+    Backend & Bases de Datos: Diseños sobre Node.js, Express, la robustez de PostgreSQL o consultas SQL complejas.
+
+    Frontend: Chistes sobre CSS, JavaScript, React o Astro.
+
+    Git & Control de Versiones: Frases clásicas como "Git push --force", "Resolviendo conflictos" o chistes sobre commits.
+
+2. Sudo & SysAdmin (Mundo Linux y Servidores)
+
+Perfecta para los que viven en la terminal.
+
+    Distribuciones: Diseños minimalistas de Ubuntu, Debian, Arch, etc.
+
+    Terminal & Comandos: Frases en bash, bromas sobre permisos (chmod 777), o el clásico "rm -rf /".
+
+    Self-Hosting & Redes: Referencias a servidores locales, montajes de media servers, puertos o automatización con cron jobs.
+
+3. Tech & Hardware (Tecnología General)
+
+Para los entusiastas de los fierros y los setups.
+
+    PC Master Race: Diseños sobre procesadores, cambio de pasta térmica, refrigeración (coolers) y ensamblaje.
+
+    Setups & Periféricos: Diseños que hagan referencia a teclados mecánicos o configuraciones de múltiples monitores.
+
+4. Crypto & Trading (Ecosistema Cripto)
+
+El cruce perfecto entre tecnología y finanzas, un nicho con mucha demanda.
+
+    Blockchain & Nodos: Diseños sobre correr nodos (Bitcoin, TRON), descentralización o minería.
+
+    Mercados: Gráficos de velas, toros vs. osos, o frases típicas como "HODL" y "Buy the dip".
+
+5. Cultura Pop & Sci-Fi (Películas)
+
+Aquí puedes agrupar el cine de culto que atrae al mismo público tecnológico.
+
+    Cyberpunk & Distopías: Referencias a Matrix, Blade Runner, o hackers clásicos.
+
+    Fantasía Espacial & Sci-Fi: Clásicos del espacio, viajes en el tiempo o inteligencia artificial.
+
+6. Anime & Manga
+
+Un pilar gigante de la cultura geek. Para no tener problemas de copyright, puedes usar siluetas, estética vaporwave, o frases icónicas en japonés.
+
+    Mecha & Cyberpunk: Evangelion, Ghost in the Shell, Akira (que combinan perfecto con la vibra tecnológica).
+
+    Shonen Clásico: Referencias sutiles a las series más populare
+
+    
