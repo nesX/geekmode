@@ -1,15 +1,15 @@
 ---
 import { formatPrice } from '../../utils/format';
+import { getProductImageUrl } from '../../utils/imageUrl';
 
 const { product, priority = false } = Astro.props;
-const imageUrl = product.images[0] || '/images/camiseta-template.png';
 ---
 
 <article class="group bg-surface rounded-xl border border-white/10 overflow-hidden hover:border-primary/50 transition-all duration-300">
   <a href={`/producto/${product.slug}`} class="block">
     <div class="aspect-square bg-background overflow-hidden relative">
       <img
-        src={imageUrl}
+        src={getProductImageUrl(product.image_filename, 'thumb')}
         alt={product.name}
         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
         loading={priority ? "eager" : "lazy"}

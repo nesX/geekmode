@@ -5,6 +5,7 @@ import SizeSelector from '../../components/shop/SizeSelector.jsx';
 import RelatedProducts from '../../components/shop/RelatedProducts.astro';
 import { fetchProducts, fetchProductBySlug, fetchRelatedProducts } from '../../lib/api';
 import { formatPrice } from '../../utils/format';
+import { getProductImageUrl } from '../../utils/imageUrl';
 import { ArrowLeft, Share2, Heart } from 'lucide-react';
 
 export async function getStaticPaths() {
@@ -20,13 +21,19 @@ const raw = await fetchProductBySlug(slug);
 // Extract unique sizes from variants
 const sizes = [...new Set(raw.variants.map((v) => v.size))];
 
+const productImages = raw.images && raw.images.length > 0
+  ? raw.images
+      .sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0))
+      .map(img => getProductImageUrl(img.filename, 'large'))
+  : [getProductImageUrl(null, 'large')];
+
 const product = {
   id: raw.id,
   slug: raw.slug,
   name: raw.name,
   price: Number(raw.base_price),
   description: raw.description,
-  images: [raw.image_url],
+  images: productImages,
   sizes,
   category: 'Geek',
 };

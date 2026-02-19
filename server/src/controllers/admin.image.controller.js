@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import * as imageService from '../services/image.service.js';
+import { ImageValidationError } from '../services/image/image.service.js';
 import logger from '../utils/logger.js';
 
 const ReorderSchema = z.object({
@@ -25,7 +26,9 @@ export async function getImages(req, res, next) {
 
 export async function uploadImage(req, res, next) {
   try {
-    if (!req.file) return res.status(400).json({ error: 'No se recibió archivo' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se recibió ningún archivo' });
+    }
     const image = await imageService.uploadImage(
       req.params.productId,
       req.file,
@@ -33,11 +36,14 @@ export async function uploadImage(req, res, next) {
     );
     res.status(201).json({ image });
   } catch (err) {
+    if (err instanceof ImageValidationError) {
+      return res.status(400).json({
+        error: err.message,
+        code: err.code,
+      });
+    }
     if (err.message === 'MAX_IMAGES') {
       return res.status(400).json({ error: 'Límite de 8 imágenes alcanzado' });
-    }
-    if (err.message === 'INVALID_TYPE') {
-      return res.status(400).json({ error: 'Solo se permiten JPG, PNG o WebP' });
     }
     logger.error('admin.image.controller', `uploadImage error: ${err.message}`);
     next(err);

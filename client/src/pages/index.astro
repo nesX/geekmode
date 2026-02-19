@@ -11,7 +11,7 @@ const mapProduct = (p, categoryName = 'Geek') => ({
   name: p.name,
   price: Number(p.base_price),
   description: p.description,
-  images: [p.image_url],
+  image_filename: p.image_filename,
   category: categoryName,
 });
 

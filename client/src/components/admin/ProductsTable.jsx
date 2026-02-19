@@ -3,6 +3,7 @@ import { adminFetch } from '../../lib/authStore';
 import ProductModal from './ProductModal.jsx';
 import VariantsModal from './VariantsModal.jsx';
 import { Plus, Pencil, Layers, XCircle, Package, Loader2 } from 'lucide-react';
+import { getProductImageUrl } from '../../utils/imageUrl';
 
 const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
 
@@ -32,6 +33,11 @@ export default function ProductsTable() {
       if (!res.ok) throw new Error('Error cargando productos');
       const data = await res.json();
       setProducts(data.products);
+      setProductModal((prev) => {
+        if (!prev.open || !prev.product) return prev;
+        const updated = data.products.find((p) => p.id === prev.product.id);
+        return updated ? { ...prev, product: updated } : prev;
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -54,23 +60,6 @@ export default function ProductsTable() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-red-400">
-        <p className="mb-4">{error}</p>
-        <button onClick={fetchProducts} className="text-sm text-primary hover:underline">Reintentar</button>
-      </div>
-    );
-  }
-
   return (
     <>
       {/* Header */}
@@ -84,6 +73,19 @@ export default function ProductsTable() {
           Nuevo Producto
         </button>
       </div>
+
+      {loading && (
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        </div>
+      )}
+
+      {error && (
+        <div className="flex flex-col items-center justify-center py-24 text-red-400">
+          <p className="mb-4">{error}</p>
+          <button onClick={fetchProducts} className="text-sm text-primary hover:underline">Reintentar</button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-surface rounded-xl border border-white/10 overflow-hidden">
@@ -103,8 +105,8 @@ export default function ProductsTable() {
               {products.map((p) => (
                 <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
                   <td className="px-6 py-4">
-                    {p.image_url ? (
-                      <img src={p.image_url} alt={p.name} className="w-12 h-12 rounded-lg object-cover border border-white/10" />
+                    {p.image_filename ? (
+                      <img src={getProductImageUrl(p.image_filename, 'thumb')} alt={p.name} className="w-12 h-12 rounded-lg object-cover border border-white/10" />
                     ) : (
                       <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center">
                         <Package className="w-5 h-5 text-text-muted" />

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { adminFetch } from '../../lib/authStore';
+import { getProductImageUrl } from '../../utils/imageUrl';
 
 const API = import.meta.env.PUBLIC_API_URL || 'http://localhost:3000';
 const MAX_IMAGES = 8;
@@ -110,7 +111,7 @@ export default function ImageManager({ productId }) {
               key={img.id}
               className="relative group rounded-lg overflow-hidden border border-white/10"
             >
-              <img src={img.url} alt={img.alt_text} className="w-full h-32 object-cover" />
+              <img src={getProductImageUrl(img.filename, 'thumb')} alt={img.alt_text} className="w-full h-32 object-cover" />
 
               {img.is_primary && (
                 <span className="absolute top-1 left-1 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full">

@@ -18,6 +18,19 @@ export default function ProductModal({ product, onClose, onSaved }) {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    if (product) {
+      setForm({
+        name: product.name || '',
+        base_price: product.base_price ? Number(product.base_price) : '',
+        description: product.description || '',
+        image_url: product.image_url || '',
+        search_keywords: product.search_keywords || '',
+      });
+    }
+  }, [product]);
 
   // Categories
   const [allCategories, setAllCategories] = useState([]);
@@ -105,7 +118,12 @@ export default function ProductModal({ product, onClose, onSaved }) {
       }
 
       onSaved();
-      onClose();
+      if (isEdit) {
+        setSuccess(true);
+        setTimeout(() => setSuccess(false), 3000);
+      } else {
+        onClose();
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -286,6 +304,9 @@ export default function ProductModal({ product, onClose, onSaved }) {
             </div>
           )}
 
+          {success && (
+            <p className="text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-2">Cambios guardados correctamente.</p>
+          )}
           {error && (
             <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">{error}</p>
           )}

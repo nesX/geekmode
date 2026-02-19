@@ -7,7 +7,7 @@ const ProductSchema = z.object({
   name: z.string().min(3),
   description: z.string().optional(),
   base_price: z.number().positive(),
-  image_url: z.string().url().optional(),
+  image_filename: z.string().optional(),
   search_keywords: z.string().max(500).optional(),
 });
 

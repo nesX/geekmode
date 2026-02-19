@@ -18,11 +18,11 @@ export async function findById(imageId) {
   return rows[0] || null;
 }
 
-export async function create({ productId, url, altText, displayOrder }) {
+export async function create({ productId, filename, altText, displayOrder }) {
   const { rows } = await pool.query(
-    `INSERT INTO product_images (product_id, url, alt_text, display_order)
+    `INSERT INTO product_images (product_id, filename, alt_text, display_order)
      VALUES ($1, $2, $3, $4) RETURNING *`,
-    [productId, url, altText, displayOrder]
+    [productId, filename, altText, displayOrder]
   );
   return rows[0];
 }

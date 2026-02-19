@@ -22,7 +22,7 @@ const mappedProducts = products.map((p) => ({
   name: p.name,
   price: Number(p.base_price),
   description: p.description,
-  images: [p.image_url || '/images/camiseta-template.png'],
+  image_filename: p.image_filename,
   category: category.name,
 }));
 ---

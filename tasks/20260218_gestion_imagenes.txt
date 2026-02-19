@@ -1,0 +1,784 @@
+# Instrucciones para el Agente — Sistema de Procesamiento de Imágenes
+
+## Contexto
+Sistema de procesamiento de imágenes que valida, optimiza y genera múltiples tamaños automáticamente. Las imágenes se convierten a WebP, se validan dimensiones mínimas y aspect ratio cuadrado. Arquitectura modular preparada para migrar fácilmente a Cloudinary en el futuro.
+
+---
+
+## Dependencias
+
+Agregar a `server/package.json`:
+
+```json
+{
+  "dependencies": {
+    "sharp": "^0.33.0"
+  }
+}
+```
+
+---
+
+## Variables de entorno
+
+Agregar a `server/.env.example`:
+
+```env
+IMAGE_STORAGE=local
+```
+
+Exponer en `server/src/config/env.js` junto a las existentes.
+
+---
+
+## Migración SQL
+
+Crear archivo `server/database/migrations/009_update_images_schema.sql`:
+
+```sql
+-- Cambiar product_images para guardar filename en lugar de url
+ALTER TABLE product_images
+ADD COLUMN filename VARCHAR(255);
+
+-- Migrar datos existentes si los hay
+UPDATE product_images
+SET filename = regexp_replace(url, '^.*/([^/]+)$', '\1')
+WHERE url IS NOT NULL;
+
+-- Hacer filename obligatorio
+ALTER TABLE product_images
+ALTER COLUMN filename SET NOT NULL;
+
+-- Borrar columna url
+ALTER TABLE product_images
+DROP COLUMN url;
+
+-- Lo mismo para products (fallback legacy)
+ALTER TABLE products
+ADD COLUMN image_filename VARCHAR(255);
+
+UPDATE products
+SET image_filename = regexp_replace(image_url, '^.*/([^/]+)$', '\1')
+WHERE image_url IS NOT NULL;
+
+ALTER TABLE products
+DROP COLUMN image_url;
+
+COMMENT ON COLUMN product_images.filename IS 'Nombre base del archivo sin extensión ni variante (ej: product-1234567890)';
+COMMENT ON COLUMN products.image_filename IS 'Nombre base del archivo de imagen legacy';
+```
+
+El usuario ejecutará esta migración manualmente.
+
+---
+
+## Estructura de carpetas
+
+Crear esta estructura en el servidor:
+
+```
+server/src/services/image/
+├── image.config.js
+├── image.validator.js
+├── image.processor.js
+├── image.service.js
+└── storage/
+    ├── storage.interface.js
+    ├── local.storage.js
+    └── storage.factory.js
+```
+
+---
+
+## Configuración centralizada
+
+### `server/src/services/image/image.config.js`
+
+```javascript
+export const IMAGE_CONFIG = {
+  // Validación
+  minWidth: 800,
+  minHeight: 800,
+  maxFileSize: 10 * 1024 * 1024, // 10MB
+  allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+  
+  // Aspect ratio
+  requiredAspectRatio: 1, // 1:1 (cuadrado)
+  aspectRatioTolerance: 0.01, // 1% de tolerancia
+  
+  // Variantes a generar
+  variants: {
+    thumb: {
+      width: 400,
+      height: 400,
+      quality: 85
+    },
+    medium: {
+      width: 800,
+      height: 800,
+      quality: 85
+    },
+    large: {
+      width: 1200,
+      height: 1200,
+      quality: 85
+    },
+    original: {
+      maxWidth: 1600,
+      maxHeight: 1600,
+      quality: 90
+    }
+  },
+  
+  // Storage
+  storageProvider: process.env.IMAGE_STORAGE || 'local',
+  localPath: process.env.MEDIA_PATH || 'uploads/products'
+}
+```
+
+---
+
+## Validador
+
+### `server/src/services/image/image.validator.js`
+
+```javascript
+import sharp from 'sharp'
+import { IMAGE_CONFIG } from './image.config.js'
+
+export class ImageValidationError extends Error {
+  constructor(message, code) {
+    super(message)
+    this.name = 'ImageValidationError'
+    this.code = code
+  }
+}
+
+export async function validateImageFile(filepath) {
+  const errors = []
+  
+  try {
+    const metadata = await sharp(filepath).metadata()
+    
+    if (metadata.width < IMAGE_CONFIG.minWidth) {
+      errors.push(`El ancho mínimo es ${IMAGE_CONFIG.minWidth}px (actual: ${metadata.width}px)`)
+    }
+    
+    if (metadata.height < IMAGE_CONFIG.minHeight) {
+      errors.push(`La altura mínima es ${IMAGE_CONFIG.minHeight}px (actual: ${metadata.height}px)`)
+    }
+    
+    const aspectRatio = metadata.width / metadata.height
+    const expectedRatio = IMAGE_CONFIG.requiredAspectRatio
+    const tolerance = IMAGE_CONFIG.aspectRatioTolerance
+    
+    if (Math.abs(aspectRatio - expectedRatio) > tolerance) {
+      errors.push(
+        `La imagen debe ser cuadrada (1:1). Dimensiones actuales: ${metadata.width}x${metadata.height}. ` +
+        `Por favor edita la imagen manualmente para que sea cuadrada.`
+      )
+    }
+    
+    if (errors.length > 0) {
+      throw new ImageValidationError(errors.join(' | '), 'INVALID_DIMENSIONS')
+    }
+    
+    return {
+      valid: true,
+      metadata: {
+        width: metadata.width,
+        height: metadata.height,
+        format: metadata.format,
+        size: metadata.size
+      }
+    }
+    
+  } catch (err) {
+    if (err instanceof ImageValidationError) {
+      throw err
+    }
+    throw new ImageValidationError(
+      'No se pudo leer la imagen. Asegúrate de que sea un archivo de imagen válido.',
+      'INVALID_FILE'
+    )
+  }
+}
+```
+
+---
+
+## Procesador
+
+### `server/src/services/image/image.processor.js`
+
+```javascript
+import sharp from 'sharp'
+import { IMAGE_CONFIG } from './image.config.js'
+import { logger } from '../../utils/logger.js'
+
+export async function processImageVariants(inputPath, baseName) {
+  const variants = {}
+  
+  for (const [variantName, config] of Object.entries(IMAGE_CONFIG.variants)) {
+    try {
+      const outputFilename = `${baseName}-${variantName}.webp`
+      
+      let pipeline = sharp(inputPath)
+      
+      if (variantName === 'original') {
+        pipeline = pipeline.resize(config.maxWidth, config.maxHeight, {
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+      } else {
+        pipeline = pipeline.resize(config.width, config.height, {
+          fit: 'cover',
+          position: 'center'
+        })
+      }
+      
+      const buffer = await pipeline
+        .webp({ 
+          quality: config.quality,
+          effort: 6
+        })
+        .toBuffer()
+      
+      variants[variantName] = {
+        filename: outputFilename,
+        buffer,
+        size: buffer.length
+      }
+      
+      logger.debug('image.processor', `Generated ${variantName}: ${outputFilename} (${buffer.length} bytes)`)
+      
+    } catch (err) {
+      logger.error('image.processor', `Failed to process variant ${variantName}: ${err.message}`)
+      throw new Error(`Error al procesar variante ${variantName}: ${err.message}`)
+    }
+  }
+  
+  return variants
+}
+```
+
+---
+
+## Storage
+
+### `server/src/services/image/storage/storage.interface.js`
+
+Archivo de documentación:
+
+```javascript
+/**
+ * Interface que todos los storage providers deben implementar
+ */
+
+/**
+ * @typedef {Object} ImageVariant
+ * @property {string} filename - Nombre del archivo con extensión
+ * @property {Buffer} buffer - Contenido de la imagen
+ * @property {number} size - Tamaño en bytes
+ */
+
+/**
+ * @typedef {Object} StorageResult
+ * @property {boolean} success
+ * @property {string} baseName - Nombre base sin extensión ni variante
+ * @property {Object.<string, string>} urls - URLs por variante
+ * @property {string} [error] - Mensaje de error si falló
+ */
+
+/**
+ * Todos los storage providers deben implementar:
+ * 
+ * async save(variants: Object.<string, ImageVariant>): Promise<StorageResult>
+ * async delete(baseName: string): Promise<boolean>
+ * getUrl(baseName: string, variant: string): string
+ */
+```
+
+### `server/src/services/image/storage/local.storage.js`
+
+```javascript
+import fs from 'fs/promises'
+import path from 'path'
+import { IMAGE_CONFIG } from '../image.config.js'
+import { logger } from '../../../utils/logger.js'
+
+class LocalStorage {
+  constructor() {
+    this.basePath = IMAGE_CONFIG.localPath
+  }
+  
+  async ensureDirectory() {
+    try {
+      await fs.mkdir(this.basePath, { recursive: true })
+    } catch (err) {
+      logger.error('storage.local', `Failed to create directory: ${err.message}`)
+      throw err
+    }
+  }
+  
+  async save(variants) {
+    await this.ensureDirectory()
+    
+    const savedFiles = []
+    let baseName = null
+    
+    try {
+      for (const [variantName, data] of Object.entries(variants)) {
+        const filepath = path.join(this.basePath, data.filename)
+        await fs.writeFile(filepath, data.buffer)
+        savedFiles.push(filepath)
+        
+        if (!baseName) {
+          baseName = data.filename.replace(/-\w+\.webp$/, '')
+        }
+        
+        logger.info('storage.local', `Saved ${data.filename}`)
+      }
+      
+      const urls = {}
+      for (const variantName of Object.keys(variants)) {
+        urls[variantName] = this.getUrl(baseName, variantName)
+      }
+      
+      return {
+        success: true,
+        baseName,
+        urls
+      }
+      
+    } catch (err) {
+      logger.error('storage.local', `Save failed, rolling back: ${err.message}`)
+      await this.rollback(savedFiles)
+      
+      return {
+        success: false,
+        error: err.message
+      }
+    }
+  }
+  
+  async delete(baseName) {
+    const deleted = []
+    
+    for (const variantName of Object.keys(IMAGE_CONFIG.variants)) {
+      const filename = `${baseName}-${variantName}.webp`
+      const filepath = path.join(this.basePath, filename)
+      
+      try {
+        await fs.unlink(filepath)
+        deleted.push(filename)
+        logger.info('storage.local', `Deleted ${filename}`)
+      } catch (err) {
+        if (err.code !== 'ENOENT') {
+          logger.warn('storage.local', `Failed to delete ${filename}: ${err.message}`)
+        }
+      }
+    }
+    
+    return deleted.length > 0
+  }
+  
+  getUrl(baseName, variant) {
+    return `/media/products/${baseName}-${variant}.webp`
+  }
+  
+  async rollback(filepaths) {
+    for (const filepath of filepaths) {
+      try {
+        await fs.unlink(filepath)
+      } catch (err) {
+        logger.error('storage.local', `Rollback failed for ${filepath}: ${err.message}`)
+      }
+    }
+  }
+}
+
+export default LocalStorage
+```
+
+### `server/src/services/image/storage/storage.factory.js`
+
+```javascript
+import LocalStorage from './local.storage.js'
+import { IMAGE_CONFIG } from '../image.config.js'
+import { logger } from '../../../utils/logger.js'
+
+const storageProviders = {
+  local: LocalStorage
+}
+
+let storageInstance = null
+
+export function getStorage() {
+  if (storageInstance) return storageInstance
+  
+  const provider = IMAGE_CONFIG.storageProvider
+  const StorageClass = storageProviders[provider]
+  
+  if (!StorageClass) {
+    throw new Error(
+      `Storage provider "${provider}" no válido. Opciones: ${Object.keys(storageProviders).join(', ')}`
+    )
+  }
+  
+  storageInstance = new StorageClass()
+  logger.info('storage.factory', `Image storage initialized: ${provider}`)
+  
+  return storageInstance
+}
+```
+
+---
+
+## Service orquestador
+
+### `server/src/services/image/image.service.js`
+
+```javascript
+import fs from 'fs/promises'
+import { validateImageFile, ImageValidationError } from './image.validator.js'
+import { processImageVariants } from './image.processor.js'
+import { getStorage } from './storage/storage.factory.js'
+import { logger } from '../../utils/logger.js'
+
+export { ImageValidationError }
+
+export async function uploadProductImage(file) {
+  const tempPath = file.path
+  
+  try {
+    logger.info('image.service', `Validating image: ${file.originalname}`)
+    const validation = await validateImageFile(tempPath)
+    
+    const baseName = `product-${Date.now()}-${Math.round(Math.random() * 1e6)}`
+    
+    logger.info('image.service', `Processing variants for ${baseName}`)
+    const variants = await processImageVariants(tempPath, baseName)
+    
+    logger.info('image.service', `Saving variants to storage`)
+    const storage = getStorage()
+    const result = await storage.save(variants)
+    
+    if (!result.success) {
+      throw new Error(result.error)
+    }
+    
+    await fs.unlink(tempPath).catch(() => {})
+    
+    logger.info('image.service', `Image uploaded successfully: ${baseName}`)
+    
+    return {
+      success: true,
+      baseName: result.baseName,
+      urls: result.urls,
+      metadata: validation.metadata
+    }
+    
+  } catch (err) {
+    await fs.unlink(tempPath).catch(() => {})
+    logger.error('image.service', `Upload failed: ${err.message}`)
+    throw err
+  }
+}
+
+export async function deleteProductImage(baseName) {
+  try {
+    const storage = getStorage()
+    const deleted = await storage.delete(baseName)
+    
+    logger.info('image.service', `Image deleted: ${baseName}`)
+    
+    return { success: true, deleted }
+  } catch (err) {
+    logger.error('image.service', `Delete failed: ${err.message}`)
+    throw err
+  }
+}
+
+export function getImageUrl(baseName, variant = 'medium') {
+  if (!baseName) return null
+  const storage = getStorage()
+  return storage.getUrl(baseName, variant)
+}
+```
+
+---
+
+## Modificaciones al backend existente
+
+### En `server/src/repositories/image.repository.js`
+
+Modificar la función `create` para usar `filename` en lugar de `url`:
+
+```javascript
+export async function create({ productId, filename, altText, displayOrder }) {
+  const { rows } = await pool.query(
+    `INSERT INTO product_images (product_id, filename, alt_text, display_order)
+     VALUES ($1, $2, $3, $4) RETURNING *`,
+    [productId, filename, altText, displayOrder]
+  )
+  return rows[0]
+}
+```
+
+### En `server/src/services/image.service.js` (el existente, no el nuevo)
+
+Renombrar el archivo existente a `image-crud.service.js` para evitar conflicto de nombres. Modificar la función `uploadImage` para usar el nuevo sistema:
+
+```javascript
+import * as imageProcessing from './image/image.service.js'
+
+export async function uploadImage(productId, file, altText = '') {
+  const existing = await imageRepo.findByProductId(productId)
+
+  if (existing.length >= env.MAX_IMAGES_PER_PRODUCT) {
+    await fs.unlink(file.path).catch(() => {})
+    throw new Error('MAX_IMAGES')
+  }
+
+  // Procesar imagen con el nuevo sistema
+  const result = await imageProcessing.uploadProductImage(file)
+  const displayOrder = existing.length
+
+  const image = await imageRepo.create({ 
+    productId, 
+    filename: result.baseName,  // Guardar solo el baseName
+    altText, 
+    displayOrder 
+  })
+
+  if (existing.length === 0) {
+    return imageRepo.setPrimary(image.id, productId)
+  }
+
+  return image
+}
+```
+
+Modificar `deleteImage` para usar el nuevo sistema:
+
+```javascript
+export async function deleteImage(imageId) {
+  const image = await imageRepo.findById(imageId)
+  if (!image) throw new Error('IMAGE_NOT_FOUND')
+
+  // Borrar archivos del storage
+  await imageProcessing.deleteProductImage(image.filename)
+
+  await imageRepo.remove(imageId)
+
+  if (image.is_primary) {
+    const remaining = await imageRepo.findByProductId(image.product_id)
+    if (remaining.length > 0) {
+      await imageRepo.setPrimary(remaining[0].id, image.product_id)
+    }
+  }
+}
+```
+
+### En `server/src/controllers/admin.image.controller.js`
+
+Modificar el handler `uploadImage` para manejar los errores de validación:
+
+```javascript
+import { ImageValidationError } from '../services/image/image.service.js'
+
+export async function uploadImage(req, res, next) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se recibió ningún archivo' })
+    }
+    
+    const image = await imageService.uploadImage(
+      req.params.productId,
+      req.file,
+      req.body.alt_text || ''
+    )
+    
+    res.status(201).json({ image })
+    
+  } catch (err) {
+    if (err instanceof ImageValidationError) {
+      return res.status(400).json({ 
+        error: err.message,
+        code: err.code 
+      })
+    }
+    if (err.message === 'MAX_IMAGES') {
+      return res.status(400).json({ error: 'Límite de 8 imágenes alcanzado' })
+    }
+    next(err)
+  }
+}
+```
+
+---
+
+## Frontend
+
+### `client/src/utils/imageUrl.js`
+
+Archivo nuevo:
+
+```javascript
+const IMAGE_SIZES = {
+  thumb: 'thumb',
+  medium: 'medium',
+  large: 'large',
+  original: 'original'
+}
+
+export function getProductImageUrl(filename, size = 'medium') {
+  if (!filename) {
+    return '/images/camiseta-template.png'
+  }
+  
+  const variant = IMAGE_SIZES[size] || 'medium'
+  return `/media/products/${filename}-${variant}.webp`
+}
+```
+
+### Modificar componentes existentes
+
+En `client/src/components/shop/ProductCard.astro`:
+
+```astro
+---
+import { getProductImageUrl } from '../../utils/imageUrl.js'
+// ...resto del código
+---
+
+<img 
+  src={getProductImageUrl(product.image_filename, 'thumb')}
+  width="400" 
+  height="400"
+  loading={priority ? 'eager' : 'lazy'}
+  alt={product.name}
+/>
+```
+
+En páginas de detalle usar `'medium'` o `'large'` según sea necesario.
+
+### En `client/src/components/admin/ImageManager.jsx`
+
+Las imágenes ya subidas seguirán funcionando. El componente debe mostrar la URL usando el helper nuevo para las imágenes con el baseName actualizado.
+
+---
+
+## Consideraciones críticas para el agente
+
+**El validador rechaza imágenes no cuadradas.** El mensaje de error debe ser claro indicando que el admin debe editar la imagen manualmente.
+
+**El procesador genera 4 variantes siempre:** thumb, medium, large y original. La variante original se optimiza pero mantiene dimensiones originales (máximo 1600x1600).
+
+**El storage hace rollback si falla.** Si falla guardando la tercera variante, borra las dos primeras ya guardadas para mantener consistencia.
+
+**El service orquestador siempre limpia archivos temporales** incluso si falla el procesamiento.
+
+**Sharp usa `fit: 'cover'` con `position: 'center'`** para las variantes redimensionadas. Como la imagen ya es cuadrada por validación, no hay crop real, solo resize.
+
+**Quality 85 para variantes regulares, 90 para original** es el balance óptimo entre tamaño y calidad.
+
+**Las URLs se construyen dinámicamente en el frontend** usando el helper `getProductImageUrl`. Nunca guardar URLs completas en BD.
+
+---
+
+## Resumen de archivos
+
+| Archivo | Acción |
+|---|---|
+| `server/database/migrations/009_update_images_schema.sql` | Crear migración |
+| `services/image/image.config.js` | Nuevo |
+| `services/image/image.validator.js` | Nuevo |
+| `services/image/image.processor.js` | Nuevo |
+| `services/image/image.service.js` | Nuevo |
+| `services/image/storage/storage.interface.js` | Nuevo |
+| `services/image/storage/local.storage.js` | Nuevo |
+| `services/image/storage/storage.factory.js` | Nuevo |
+| `services/image-crud.service.js` | Renombrar el existente y modificar |
+| `repositories/image.repository.js` | Modificar función create |
+| `controllers/admin.image.controller.js` | Modificar handler uploadImage |
+| `client/src/utils/imageUrl.js` | Nuevo |
+| `components/shop/ProductCard.astro` | Modificar para usar helper |
+| Otros componentes que muestren imágenes | Modificar para usar helper |
+
+
+
+
+● Ahora instalo la dependencia sharp:                                          
+                                              
+● Bash(cd /projects/geekmode/server && npm install sharp@^0.33.0 2>&1 | tail -5)
+  ⎿  To address all issues, run:                 
+       npm audit fix                                  
+                                                                                                                                                                                                                                                              
+     Run `npm audit` for details.             
+                                                                                                                                                                                                                                                              
+● sharp instalado. Verifico que la estructura de archivos creados es correcta:                       
+                                                                                                                                                                                                                                                              
+● Searched for 1 pattern (ctrl+o to expand)                                                                                                                                                                                                                   
+                                                 
+● Todo en orden. Aquí está el resumen completo de lo que se implementó:                                                                                                                                                                                       
+                                                                                                                                                                                                                                                              
+  ---                                                                                                                                                                                                                                                         
+  Sistema de procesamiento de imágenes - Implementado                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                              
+  Archivos creados (servidor)                                                 
+
+  ┌─────────────────────────────────────────────────────────┬─────────────────────────────────────────────────────────────────────────────────────┐
+  │                         Archivo                         │                                     Descripción                                     │
+  ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/database/migrations/009_update_images_schema.sql │ Migración: url → filename en product_images, image_url → image_filename en products │
+  ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/services/image/image.config.js               │ Config centralizada: variantes, validación, storage                                 │
+  ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/services/image/image.validator.js            │ Valida dimensiones mínimas 800x800 y aspect ratio 1:1                               │
+  ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/services/image/image.processor.js            │ Genera 4 variantes WebP con sharp                                                   │
+  ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/services/image/image.service.js              │ Orquestador: valida → procesa → guarda → limpia temp                                │
+  ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/services/image/storage/storage.interface.js  │ Documentación de la interfaz                                                        │
+  ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/services/image/storage/local.storage.js      │ Storage local con rollback automático                                               │
+  ├─────────────────────────────────────────────────────────┼─────────────────────────────────────────────────────────────────────────────────────┤
+  │ server/src/services/image/storage/storage.factory.js    │ Singleton factory (preparado para Cloudinary)                                       │
+  └─────────────────────────────────────────────────────────┴─────────────────────────────────────────────────────────────────────────────────────┘
+
+  Archivos creados (frontend)
+
+  ┌──────────────────────────────┬───────────────────────────────────────────┐
+  │           Archivo            │                Descripción                │
+  ├──────────────────────────────┼───────────────────────────────────────────┤
+  │ client/src/utils/imageUrl.js │ Helper getProductImageUrl(filename, size) │
+  └──────────────────────────────┴───────────────────────────────────────────┘
+
+  Archivos modificados
+
+  - server/package.json — sharp ^0.33.0 (instalado)
+  - server/.env.example — IMAGE_STORAGE=local
+  - server/src/config/env.js — imageStorage expuesto
+  - server/src/services/image.service.js — CRUD actualizado para usar el nuevo procesador
+  - server/src/repositories/image.repository.js — url → filename en create()
+  - server/src/repositories/product.repository.js — image_url → image_filename en todas las queries
+  - server/src/controllers/admin.image.controller.js — Maneja ImageValidationError con código HTTP 400
+  - server/src/controllers/admin.product.controller.js — Schema: image_url → image_filename
+  - client/src/components/shop/ProductCard.astro — Usa getProductImageUrl(product.image_filename, 'thumb')
+  - client/src/components/shop/RelatedProducts.astro — Idem con p.image_filename
+  - client/src/components/admin/ImageManager.jsx — Usa getProductImageUrl(img.filename, 'thumb')
+  - client/src/pages/index.astro, buscar.astro, camisetas/[slug].astro — Pasan image_filename
+  - client/src/pages/producto/[slug].astro — Construye URLs con el helper para la galería
+
+  Próximo paso (manual)
+
+  Ejecutar la migración SQL en la base de datos:
+  psql -d geekshop -f server/database/migrations/009_update_images_schema.sql
+
+✻ Churned for 7m 58s                                                                                                                                                                                                                                          
+  
+
+

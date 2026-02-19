@@ -1,5 +1,6 @@
 ---
 import { formatPrice } from '../../utils/format';
+import { getProductImageUrl } from '../../utils/imageUrl';
 
 const { products, categoryName, categorySlug } = Astro.props;
 ---
@@ -25,7 +26,7 @@ const { products, categoryName, categorySlug } = Astro.props;
         >
           <div class="aspect-square bg-background overflow-hidden">
             <img
-              src={p.image_url || '/images/camiseta-template.png'}
+              src={getProductImageUrl(p.image_filename, 'thumb')}
               alt={p.name}
               class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
               loading="lazy"

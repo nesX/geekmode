@@ -1,16 +1,8 @@
 import fs from 'fs/promises';
-import path from 'path';
 import { env } from '../config/env.js';
 import logger from '../utils/logger.js';
 import * as imageRepo from '../repositories/image.repository.js';
-
-function buildPublicUrl(filename) {
-  return `${env.MEDIA_URL_PREFIX}/${filename}`;
-}
-
-function buildDiskPath(url) {
-  return path.join(env.MEDIA_PATH, path.basename(url));
-}
+import * as imageProcessing from './image/image.service.js';
 
 export async function getProductImages(productId) {
   return imageRepo.findByProductId(productId);
@@ -24,12 +16,14 @@ export async function uploadImage(productId, file, altText = '') {
     throw new Error('MAX_IMAGES');
   }
 
-  const url = buildPublicUrl(file.filename);
+  const result = await imageProcessing.uploadProductImage(file);
+  const displayOrder = existing.length;
+
   const image = await imageRepo.create({
     productId,
-    url,
+    filename: result.baseName,
     altText,
-    displayOrder: existing.length,
+    displayOrder,
   });
 
   if (existing.length === 0) {
@@ -42,10 +36,10 @@ export async function uploadImage(productId, file, altText = '') {
 export async function uploadImagesForNewProduct(productId, files) {
   const images = [];
   for (let i = 0; i < files.length; i++) {
-    const url = buildPublicUrl(files[i].filename);
+    const result = await imageProcessing.uploadProductImage(files[i]);
     const image = await imageRepo.create({
       productId,
-      url,
+      filename: result.baseName,
       altText: '',
       displayOrder: i,
     });
@@ -73,9 +67,7 @@ export async function deleteImage(imageId) {
   const image = await imageRepo.findById(imageId);
   if (!image) throw new Error('IMAGE_NOT_FOUND');
 
-  await fs.unlink(buildDiskPath(image.url)).catch(() => {
-    logger.warn('image.service', `Archivo no encontrado: ${image.url}`);
-  });
+  await imageProcessing.deleteProductImage(image.filename);
 
   await imageRepo.remove(imageId);
 

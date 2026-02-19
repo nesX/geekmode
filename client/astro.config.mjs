@@ -8,4 +8,14 @@ export default defineConfig({
   output: 'server',
   adapter: node({ mode: 'standalone' }),
   integrations: [react(), tailwind()],
+  vite: {
+    server: {
+      proxy: {
+        '/media': {
+          target: 'http://localhost:3000',
+          changeOrigin: true,
+        },
+      },
+    },
+  },
 });

@@ -1,0 +1,70 @@
+● El flujo completo de imagenes principio a fin:                                                                                                                                                                                                                       
+                                                                                 
+  ---                                                                                                                                                                                                                                                         
+  1. Subida — se generan los archivos en disco                                                                                                                                                                                                                
+                                                                                                                                                                                                                                                              
+  Al subir una imagen, el procesador genera 4 variantes y las guarda en:                                                                                                                                                                                      
+  uploads/products/                                                                                                                                                                                                                                           
+    product-1234567890-123456-thumb.webp
+    product-1234567890-123456-medium.webp
+    product-1234567890-123456-large.webp
+    product-1234567890-123456-original.webp
+  En BD se guarda solo el baseName: product-1234567890-123456
+
+  ---
+  2. URL construida — cliente
+
+  imageUrl.js:14 construye la URL así:
+  /media/products/{baseName}-{variant}.webp
+  → /media/products/product-1234567890-123456-medium.webp
+
+  ---
+  3. Request HTTP — quién responde
+
+  La URL /media/products/... la recibe el servidor Express (en desarrollo) o Nginx (en producción):
+
+  - Desarrollo (app.js:31):
+  app.use('/media/products', express.static('uploads/products'))
+  - Express busca el archivo en uploads/products/ relativo al directorio de trabajo del proceso (donde se ejecuta node).
+  - Producción: Nginx sirve directamente desde la carpeta de archivos estáticos, sin pasar por Node.
+
+  ---
+  Resumen del flujo:
+
+  BD: baseName = "product-abc"
+          ↓
+  cliente construye: /media/products/product-abc-medium.webp
+          ↓
+  HTTP GET → servidor Express (dev)
+          ↓
+  express.static busca: uploads/products/product-abc-medium.webp
+          ↓
+  archivo existe? → 200 OK : 404
+
+
+Variables en .env
+IMAGE_STORAGE=local # Local por ahora
+MEDIA_PATH=uploads/products # Carpeta donde se almacenaran las imagenes
+MEDIA_URL_PREFIX=/media/products # Url publica para acceder a las imagenes y esconder la ruta real
+
+ y como sabe el front cual es media_url_prefix                                                                                                                                                                                                               
+                                                
+● No lo sabe. Está hardcodeado directamente en el cliente:                                                                                                                                                                                                    
+                                                              
+  client/src/utils/imageUrl.js:14                                                                                                                                                                                                                             
+  return `/media/products/${filename}-${variant}.webp`                                                                                                                                                                                                        
+  //      ↑ hardcodeado, no lee MEDIA_URL_PREFIX                                                                                                                                                                                                              
+                                                                                 
+  Y lo mismo en local.storage.js:83 del servidor:
+  getUrl(baseName, variant) {
+    return `/media/products/${baseName}-${variant}.webp`
+    //      ↑ también hardcodeado
+  }
+
+  Entonces MEDIA_URL_PREFIX existe en el .env pero ningún lado del código la lee realmente. Si cambiaras ese valor a /static/images, las imágenes seguirían construyendo URLs con /media/products/... porque el código no usa la variable.
+
+  Para que funcione correctamente habría que:
+  1. Que el servidor exponga el prefijo en algún endpoint o que el cliente lo lea de una variable de entorno de Astro (PUBLIC_MEDIA_URL_PREFIX).
+  2. Que imageUrl.js use esa variable en lugar del string literal.
+
+  Por ahora es simplemente una variable documentada pero desconectada.

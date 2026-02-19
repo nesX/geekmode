@@ -28,6 +28,7 @@ export const env = {
   LOG_PATH: process.env.LOG_PATH || 'logs',
 
   // Media / Images
+  imageStorage: process.env.IMAGE_STORAGE || 'local',
   MEDIA_PATH: process.env.MEDIA_PATH || 'uploads/products',
   MEDIA_URL_PREFIX: process.env.MEDIA_URL_PREFIX || '/media/products',
   MAX_IMAGES_PER_PRODUCT: parseInt(process.env.MAX_IMAGES_PER_PRODUCT || '8', 10),
