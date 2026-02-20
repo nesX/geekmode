@@ -14,3 +14,45 @@ A technical blueprint t-shirt graphic for [BITCOIN BTC LOGO]. Deconstructed sche
 Artistico:
 Minimalist t-shirt print for [BITCOIN BTC LOGO] made of shattering geometric particles and abstract polygon shapes flying outwards. The central logo is solid white and gold, breaking apart into smaller fragments that fade to transparent at the peripheries. Dynamic motion, clean aesthetic, no containing box shape. High contrast against a black shirt background --ar 4:5 --stylize 200 --v 6.0
 
+
+Opción 1 Modificada: Estilo "Circuito Fluido" (Fondo Plano)
+
+Este es el mismo diseño de circuitos, pero forzando a que el fondo no tenga ninguna interacción de luz con el diseño.
+
+Prompt:
+
+    t-shirt graphic design for [BITCOIN BTC LOGO]. The central logo is constructed from flowing interconnected circuit board lines, data streams, and abstract network nodes that dissipate and fade outwards. Minimalist techwear style. Color palette is glowing white, electric blue, and subtle orange accents. The design is set against a completely flat, solid black background with zero gradients, no vignetting, and no lighting spill onto the background layer. Pure #000000 background for easy cutout. Fluid integration, no hard outer borders --ar 4:5 --stylize 250 --v 6.0 --no background gradients, vignetting, ambient light
+
+
+
+Opción 2 Modificada: Estilo "Esquemático / Blueprint" (Fondo Plano)
+
+Al ser un estilo de "plano técnico", se presta muy bien para un fondo absolutamente plano.
+
+Prompt:
+
+    A technical blueprint t-shirt graphic for [BITCOIN BTC LOGO]. Deconstructed schematic view composed of fine white and cyan glowing lines, wireframe structures floating. The edges of the design utilize negative space to integrate. Futuristic, clean. Isolated on a strictly flat solid black background. No gradients, no glow effects on the background itself, pure uniform black color across the entire canvas behind the design. --ar 4:5 --stylize 300 --v 6.0 --no gradients, shadows, realistic lighting
+
+
+[Este genera la camiseta !X!X]
+Opción 3 Modificada: Estilo "Dispersión de Partículas" (Fondo Plano)
+
+Este es el más difícil porque las partículas "brillan", pero con estas instrucciones el brillo debería quedarse contenido en el objeto y no manchar el fondo negro.
+
+Prompt:
+
+    Minimalist t-shirt print for [BITCOIN BTC LOGO] made of shattering geometric particles and abstract polygon shapes flying outwards. The central logo is solid white and gold, breaking apart into smaller fragments. Dynamic motion, clean aesthetic, no containing box shape. The design is placed on a perfectly flat solid black background. Ensure the black background is uniform with absolutely no gradients, lighting falloff, or vignette effects. Vector-like background cleanliness. --ar 4:5 --stylize 200 --v 6.0 --no background haze, gradients
+
+
+
+[Genera camiseta !X]
+Opción A: Estilo "Monolínea Geométrica" (El más limpio de todos)
+
+Este estilo usa una sola línea continua o líneas muy finas para dibujar el logo. Es súper elegante, discreto y perfecto para una camiseta de "iniciado".
+
+Prompt:
+
+    minimalist t-shirt graphic of [BITCOIN BTC LOGO]. The design is a clean, single-weight white monoline geometric drawing, like a modern vector icon. No fills, just elegant lines. Floating in the center. Strictly flat solid pure black background #000000. No gradients, no shadows, no glow effects. Vector art aesthetic. --ar 4:5 --stylize 50 --v 6.0 --no background gradients
+
+
+minimalist t-shirt print concept for [BITCOIN BTC LOGO]. The logo is formed by negative space against a subtle, dark charcoal grey abstract geometric shape behind it. The edges are clean but soft. The overall background is a strictly flat solid pure black. High contrast between the dark grey element and the flat black background, no gradients or vignetting. Very subtle and clean. --ar 4:5 --stylize 100 --v 6.0 --no bright colors, gradients    

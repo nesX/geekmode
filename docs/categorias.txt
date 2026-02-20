@@ -51,3 +51,65 @@ Un pilar gigante de la cultura geek. Para no tener problemas de copyright, puede
     Shonen Clásico: Referencias sutiles a las series más populare
 
     
+
+## Ideas
+
+Para mantener el ADN tecnológico de la tienda y que esta categoría encaje perfectamente con las otras (como `<Dev Life />` o `Player One`), el nombre tiene que sonar a una broma interna para geeks, desarrolladores y gamers.
+
+Aquí tienes varias opciones divididas por el "estilo" de humor que quieras manejar:
+
+### 1. Nombres basados en Código y Lógica (Los más ingeniosos)
+
+* **`Bugs & Features`:** El chiste más viejo y querido de la programación ("No es un error, es una característica"). Perfecto para diseños absurdos que no tienen mucho sentido pero dan risa.
+* **`Math.random()`:** La función universal para generar algo aleatorio. Le dice al usuario: "Aquí vas a encontrar cualquier locura impredecible".
+* **`404 Logic Not Found`:** Muy visual, excelente para una URL (`/404-logic`), e ideal para diseños que son pura comedia sin sentido.
+* **`Meme Driven Development`:** Una parodia de las metodologías de trabajo (como *Test Driven Development*). Perfecto si vas a subir muchos memes de internet adaptados a camisetas.
+
+### 2. Nombres basados en la Cultura Gamer y de Internet
+
+* **`Easter Eggs`:** En el software y los videojuegos, los "huevos de pascua" son esos chistes ocultos y locos que los creadores esconden a propósito. Es un nombre sutil y muy atractivo.
+* **`Troll Mode`:** Hace un juego de palabras directo con el nombre de tu tienda. Es la categoría donde la tienda se pone en "modo troll".
+* **`AFK (Away From Keyboard)`:** Literalmente "Lejos del teclado". Da la idea de que son los diseños que se te ocurren cuando no estás trabajando en serio y tu mente está divagando.
+
+### 3. Nombres estilo Linux / SysAdmin (Humor más oscuro)
+
+* **`/dev/null`:** El famoso agujero negro de los sistemas Unix/Linux donde se envía la basura o lo que no importa. Es un guiño brutal para los que entienden de servidores.
+* **`Kernel Panic`:** El error crítico del sistema. Ideal para diseños que visualmente son una explosión de colores absurdos o situaciones caóticas.
+
+**💡 Mi recomendación:**
+Si quieres algo que todo el mundo entienda al instante y que sea muy comercial, **`Bugs & Features`** o **`Easter Eggs`** son opciones ganadoras. Si quieres irte por lo puramente aleatorio, **`Math.random()`** se verá increíble en el menú de navegación junto a `<Dev Life />`.
+
+¿Te gustaría que intentemos crear un prompt para Midjourney de uno de esos diseños "locos" (tal vez combinando un pingüino de Linux haciendo algo absurdo) para ver cómo queda?
+
+
+
+
+Ah, entiendo perfectamente. Si los diseños van a ser puramente artísticos, surrealistas, absurdos o abstractos (sin computadoras, ni código, ni consolas de por medio), necesitas un nombre que sirva como un "cajón de sastre" para cualquier locura.
+
+Pero, como la tienda se llama **GeekMode**, lo ideal es que el *nombre* de la categoría mantenga un guiño sutil a esa cultura, indicando que es la sección donde "se rompen las reglas".
+
+Aquí tienes opciones excelentes para agrupar ese tipo de arte:
+
+### 1. El toque Gamer / Internet
+
+* **`Side Quests` (Misiones Secundarias):** En los videojuegos, las misiones secundarias son esas aventuras locas y aleatorias que no tienen nada que ver con la historia principal. Es el nombre perfecto para decirle a tu cliente: *"Esto no es la temática principal, pero es genial"*.
+* **`Sandbox Mode`:** En el software y los juegos, el "modo sandbox" es donde te dan herramientas infinitas y cero reglas para que construyas o destruyas lo que quieras. Ideal para arte abstracto y sin límites.
+* **`Off-Topic`:** Es el clásico nombre que tenían todos los foros de internet en los años 2000 para la sección donde la gente podía hablar y publicar cualquier cosa que no tuviera que ver con el tema del foro.
+
+### 2. El toque de Misterio / Surrealismo
+
+* **`The Backrooms`:** Es una leyenda urbana gigante en internet que habla de dimensiones alternativas extrañas y sin sentido. Si tus diseños son abstractos o un poco bizarros, este nombre atrae muchísimo a los jóvenes y conocedores de internet.
+* **`Chaos Theory` (Teoría del Caos):** Suena elegante, pero básicamente significa imprevisibilidad. Le da un toque de galería de arte a una sección de diseños locos y fluidos.
+* **`Área 51` o `Expediente X`:** Un clásico intocable para todo lo que es inexplicable, extraño o "fuera de este mundo".
+
+### 3. Nombres Directos y Creativos
+
+Si prefieres alejarte por completo de la terminología de internet y usar algo más enfocado en la vibra del arte:
+
+* **`Acid Trip` o `Trippy Vibes`:** Muy usado en el *streetwear* para diseños psicodélicos, coloridos, derretidos o que juegan con ilusiones ópticas.
+* **`Abstract & Surreal`:** Directo al grano, perfecto si el arte es más serio o geométrico.
+* **`Randomizer`:** Da la idea de que es una máquina que escupió diseños de forma totalmente aleatoria.
+
+Si tuvieras que elegir una "vibra" para esta sección, ¿te inclinas más por lo psicodélico/colorido, lo puramente geométrico abstracto, o lo absurdo y gracioso? ¿Te gustaría que probemos a crear un prompt en Midjourney para esta nueva categoría?
+
+

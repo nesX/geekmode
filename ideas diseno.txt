@@ -15,3 +15,16 @@ Lo que DEBES incluir (Palabras positivas):
 2. Lo que DEBES evitar (Palabras negativas --no):
 
     --no border, frame, rectangular shape, square background, poster style, sticker format (Sin bordes, marcos, formas rectangulares, fondo cuadrado, estilo póster, formato pegatina).
+
+
+
+
+
+
+ [Ideas diseño]
+
+ Poder generar un diseno sobre el riesgo de seguridad que es tener un ejecutable con permisos genericos 
+ y estar ejecutandolo desde root crontab
+
+ 
+    

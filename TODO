@@ -1,10 +1,14 @@
 ### ! Cambiar las credenciasles en .env, claude accedio! a ellas
 
 
+## !! Al actualizar un nombre cambiar el slug y genera error, ver que es lo mejor para estos casos
 
 
+# Agregar zoom en producto para ver mejor la camiseta
 
-! Agregar creacion de miniaturas para cargar en el home u otras partes que no sea el producto
+
+# Agregar productos relacionados, estos se agregaran manualmente, variaciones del mismo diseno
+
 
 # Crear cuenta usuario para ver pedidos
 

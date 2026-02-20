@@ -104,12 +104,12 @@ export default function ProductsTable() {
             <tbody>
               {products.map((p) => (
                 <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-3">
                     {p.image_filename ? (
-                      <img src={getProductImageUrl(p.image_filename, 'thumb')} alt={p.name} className="w-12 h-12 rounded-lg object-cover border border-white/10" />
+                      <img src={getProductImageUrl(p.image_filename, 'thumb')} alt={p.name} className="w-20 h-20 rounded-lg object-cover border border-white/10" />
                     ) : (
-                      <div className="w-12 h-12 rounded-lg bg-white/5 flex items-center justify-center">
-                        <Package className="w-5 h-5 text-text-muted" />
+                      <div className="w-20 h-20 rounded-lg bg-white/5 flex items-center justify-center">
+                        <Package className="w-8 h-8 text-text-muted" />
                       </div>
                     )}
                   </td>
